@@ -1,0 +1,676 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Item, ItemFormData, ItemStatus, ITEM_STATUSES, Unit, LOCATIONS, Location } from '@/lib/types';
+import { StatusBadge } from './StatusBadge';
+import { PropertySticker } from './PropertySticker';
+import { ConfirmModal } from './ConfirmModal';
+import { createClient } from '@/lib/supabase/client';
+
+interface InventoryItemFormProps {
+    item?: Item | null;
+    isEditable?: boolean;
+    onSave?: (data: ItemFormData) => Promise<void>;
+    onDelete?: () => Promise<void>;
+    onClose?: () => void;
+    isNew?: boolean;
+}
+
+export function InventoryItemForm({
+    item,
+    isEditable = false,
+    onSave,
+    onDelete,
+    onClose,
+    isNew = false,
+}: InventoryItemFormProps) {
+    const [formData, setFormData] = useState<ItemFormData>({
+        name: item?.name || '',
+        unique_id: item?.unique_id || generateUniqueId(),
+        description: item?.description || '',
+        serial_number: item?.serial_number || '',
+        acquisition_date: item?.acquisition_date || '',
+        acquisition_cost: item?.acquisition_cost || null,
+        location: item?.location || '',
+        end_user: item?.end_user || '',
+        status: item?.status || 'In Stock',
+        remarks: item?.remarks || '',
+        itr_or_no: item?.itr_or_no || '',
+        property_number: item?.property_number || '',
+        image_url: item?.image_url || '',
+        quantity: item?.quantity || 0,
+        unit: item?.unit || '',
+        owner: item?.owner || '',
+    });
+    const [units, setUnits] = useState<Unit[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [showQR, setShowQR] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [imagePreview, setImagePreview] = useState<string>(item?.image_url || '');
+
+    const supabase = createClient();
+
+    useEffect(() => {
+        fetchUnits();
+    }, []);
+
+    const fetchUnits = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('units')
+                .select('*')
+                .order('name');
+
+            if (error) throw error;
+            setUnits(data || []);
+        } catch (err) {
+            console.error('Error fetching units:', err);
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!onSave) return;
+
+        try {
+            setIsSaving(true);
+            setError(null);
+            await onSave(formData);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to save item');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!onDelete) return;
+
+        try {
+            setIsDeleting(true);
+            setError(null);
+            setShowDeleteModal(false);
+            await onDelete();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to delete item');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleChange = (field: keyof ItemFormData, value: string | number | null) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Create local preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+
+        // Upload to Supabase Storage
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `item-images/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('inventory')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('inventory')
+                .getPublicUrl(filePath);
+
+            handleChange('image_url', publicUrl);
+        } catch (err) {
+            console.error('Error uploading image:', err);
+            setError('Failed to upload image. Please try again.');
+        }
+    };
+
+    return (
+        <>
+            <div className="bg-surface rounded-2xl shadow-xl border border-border overflow-hidden">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-2xl font-bold text-foreground">
+                                {isNew ? 'Add New Item' : formData.name || 'Item Details'}
+                            </h2>
+                            {!isNew && item && (
+                                <p className="text-sm text-muted mt-1">ID: {item.unique_id}</p>
+                            )}
+                        </div>
+                        {!isNew && item && (
+                            <StatusBadge status={item.status} size="lg" />
+                        )}
+                    </div>
+                </div>
+
+                {/* Form */}
+                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                    {/* Error Message */}
+                    {error && (
+                        <div className="p-4 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    {/* Image Upload */}
+                    <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                            Item Image
+                        </label>
+                        <div className="flex items-start gap-4">
+                            {(imagePreview || formData.image_url) && (
+                                <div className="w-32 h-32 rounded-lg border border-border overflow-hidden bg-surface-hover flex-shrink-0">
+                                    <img
+                                        src={imagePreview || formData.image_url}
+                                        alt="Item preview"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                            )}
+                            {isEditable && (
+                                <div className="flex-1">
+                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-surface-hover transition-colors">
+                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                            <UploadIcon className="w-10 h-10 text-muted mb-2" />
+                                            <p className="text-sm text-muted">
+                                                <span className="font-medium text-primary">Click to upload</span> or drag and drop
+                                            </p>
+                                            <p className="text-xs text-muted mt-1">PNG, JPG up to 5MB</p>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                        />
+                                    </label>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Item Name */}
+                    <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                            Item Name *
+                        </label>
+                        {isEditable ? (
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => handleChange('name', e.target.value)}
+                                className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                placeholder="e.g., Epson Printer"
+                                required
+                            />
+                        ) : (
+                            <p className="text-2xl font-bold text-foreground">{formData.name}</p>
+                        )}
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                            Description
+                        </label>
+                        {isEditable ? (
+                            <textarea
+                                value={formData.description}
+                                onChange={(e) => handleChange('description', e.target.value)}
+                                rows={2}
+                                className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                                placeholder="e.g., Epson l3210 printer"
+                            />
+                        ) : (
+                            <p className="text-foreground">{formData.description || '-'}</p>
+                        )}
+                    </div>
+
+                    {/* Serial Number and Property Number */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">
+                                Serial Number
+                            </label>
+                            {isEditable ? (
+                                <input
+                                    type="text"
+                                    value={formData.serial_number}
+                                    onChange={(e) => handleChange('serial_number', e.target.value)}
+                                    className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                    placeholder="e.g., 222-19-01-03-12"
+                                />
+                            ) : (
+                                <p className="text-foreground font-mono">{formData.serial_number || '-'}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">
+                                Property Number
+                            </label>
+                            {isEditable ? (
+                                <input
+                                    type="text"
+                                    value={formData.property_number}
+                                    onChange={(e) => handleChange('property_number', e.target.value)}
+                                    className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                    placeholder="e.g., SPHV-2019-06-01-0012-RAD-01-02"
+                                />
+                            ) : (
+                                <p className="text-foreground font-mono">{formData.property_number || '-'}</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Acquisition Date and Cost */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">
+                                Acquisition Date
+                            </label>
+                            {isEditable ? (
+                                <input
+                                    type="date"
+                                    value={formData.acquisition_date}
+                                    onChange={(e) => handleChange('acquisition_date', e.target.value)}
+                                    className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                />
+                            ) : (
+                                <p className="text-foreground">
+                                    {formData.acquisition_date
+                                        ? new Date(formData.acquisition_date).toLocaleDateString('en-PH', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric'
+                                        })
+                                        : '-'}
+                                </p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">
+                                Acquisition Cost
+                            </label>
+                            {isEditable ? (
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted">₱</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={formData.acquisition_cost || ''}
+                                        onChange={(e) => handleChange('acquisition_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                                        className="w-full pl-8 pr-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                        placeholder="0.00"
+                                    />
+                                </div>
+                            ) : (
+                                <p className="text-foreground">
+                                    {formData.acquisition_cost
+                                        ? `₱${formData.acquisition_cost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                                        : '-'}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Location and End User */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">
+                                Location
+                            </label>
+                            {isEditable ? (
+                                <select
+                                    value={formData.location}
+                                    onChange={(e) => handleChange('location', e.target.value as Location | '')}
+                                    className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                >
+                                    <option value="">Select location</option>
+                                    {LOCATIONS.map((loc) => (
+                                        <option key={loc} value={loc}>
+                                            {loc}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <p className="text-foreground">{formData.location || '-'}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">
+                                End User
+                            </label>
+                            {isEditable ? (
+                                <input
+                                    type="text"
+                                    value={formData.end_user}
+                                    onChange={(e) => handleChange('end_user', e.target.value)}
+                                    className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                    placeholder="e.g., JUDEL BAGISAN"
+                                />
+                            ) : (
+                                <p className="text-foreground">{formData.end_user || '-'}</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ITR OR No. */}
+                    <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                            ITR OR No.
+                        </label>
+                        {isEditable ? (
+                            <input
+                                type="text"
+                                value={formData.itr_or_no}
+                                onChange={(e) => handleChange('itr_or_no', e.target.value)}
+                                className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                placeholder="e.g., ITR-2020-0045 or n/a"
+                            />
+                        ) : (
+                            <p className="text-foreground">{formData.itr_or_no || '-'}</p>
+                        )}
+                    </div>
+
+                    {/* Unique ID (only for new items) */}
+                    {isNew && (
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">
+                                Unique ID *
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={formData.unique_id}
+                                    onChange={(e) => handleChange('unique_id', e.target.value)}
+                                    className="flex-1 px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-mono"
+                                    placeholder="Unique identifier"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => handleChange('unique_id', generateUniqueId())}
+                                    className="px-4 py-3 rounded-lg border border-border text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                                    title="Generate new ID"
+                                >
+                                    <RefreshIcon className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Quantity and Unit */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">
+                                Quantity
+                            </label>
+                            {isEditable ? (
+                                <input
+                                    type="number"
+                                    value={formData.quantity}
+                                    onChange={(e) => handleChange('quantity', parseInt(e.target.value) || 0)}
+                                    className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                    min="0"
+                                />
+                            ) : (
+                                <p className="text-xl font-semibold text-foreground">{formData.quantity}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">
+                                Unit
+                            </label>
+                            {isEditable ? (
+                                <select
+                                    value={formData.unit}
+                                    onChange={(e) => handleChange('unit', e.target.value)}
+                                    className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                >
+                                    <option value="">Select unit</option>
+                                    {units.map((unit) => (
+                                        <option key={unit.id} value={unit.name}>
+                                            {unit.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <p className="text-xl font-semibold text-foreground">{formData.unit || '-'}</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Owner */}
+                    <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                            Owner/Department
+                        </label>
+                        {isEditable ? (
+                            <input
+                                type="text"
+                                value={formData.owner}
+                                onChange={(e) => handleChange('owner', e.target.value)}
+                                className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                placeholder="Item owner or department"
+                            />
+                        ) : (
+                            <p className="text-lg text-foreground">{formData.owner || '-'}</p>
+                        )}
+                    </div>
+
+                    {/* Status */}
+                    <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                            Status
+                        </label>
+                        {isEditable ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {ITEM_STATUSES.map((status) => (
+                                    <button
+                                        key={status}
+                                        type="button"
+                                        onClick={() => handleChange('status', status)}
+                                        className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${formData.status === status
+                                            ? getStatusButtonClass(status, true)
+                                            : 'border-border text-muted hover:border-primary/50'
+                                            }`}
+                                    >
+                                        {status}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <StatusBadge status={formData.status} size="lg" />
+                        )}
+                    </div>
+
+                    {/* Remarks */}
+                    <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                            Remarks
+                        </label>
+                        {isEditable ? (
+                            <textarea
+                                value={formData.remarks}
+                                onChange={(e) => handleChange('remarks', e.target.value)}
+                                rows={3}
+                                className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                                placeholder="Additional notes or comments"
+                            />
+                        ) : (
+                            <p className="text-foreground whitespace-pre-wrap">
+                                {formData.remarks || 'No remarks'}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* QR Code Section (for existing items) */}
+                    {!isNew && item && (
+                        <div className="border-t border-border pt-6">
+                            <button
+                                type="button"
+                                onClick={() => setShowQR(!showQR)}
+                                className="flex items-center gap-2 text-primary hover:text-primary-hover font-medium transition-colors"
+                            >
+                                <QRIcon className="w-5 h-5" />
+                                {showQR ? 'Hide Property Sticker' : 'Print Property Sticker'}
+                            </button>
+
+                            {showQR && (
+                                <div className="mt-4">
+                                    <PropertySticker item={item} onClose={() => setShowQR(false)} />
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex flex-wrap gap-3 pt-4 border-t border-border">
+                        {isEditable && (
+                            <>
+                                <button
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <SaveIcon className="w-5 h-5" />
+                                            {isNew ? 'Create Item' : 'Save Changes'}
+                                        </>
+                                    )}
+                                </button>
+
+                                {!isNew && onDelete && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDeleteModal(true)}
+                                        disabled={isDeleting}
+                                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-danger/10 text-danger font-medium hover:bg-danger hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        {isDeleting ? (
+                                            <>
+                                                <div className="w-5 h-5 border-2 border-danger border-t-transparent rounded-full animate-spin" />
+                                                Deleting...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <TrashIcon className="w-5 h-5" />
+                                                Delete
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </>
+                        )}
+
+                        {onClose && (
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="flex-1 sm:flex-none px-6 py-3 rounded-lg border border-border text-muted font-medium hover:text-foreground hover:bg-surface-hover transition-all"
+                            >
+                                {isEditable ? 'Cancel' : 'Close'}
+                            </button>
+                        )}
+                    </div>
+                </form>
+            </div>
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={showDeleteModal}
+                title="Delete Item"
+                message="Are you sure you want to delete this item? This action cannot be undone."
+                confirmText="Delete"
+                cancelText="Cancel"
+                variant="danger"
+                onConfirm={handleDelete}
+                onCancel={() => setShowDeleteModal(false)}
+            />
+        </>
+    );
+}
+
+// Helper function to generate unique ID
+function generateUniqueId(): string {
+    const timestamp = Date.now().toString(36);
+    const randomPart = Math.random().toString(36).substring(2, 8);
+    return `INV-${timestamp}-${randomPart}`.toUpperCase();
+}
+
+// Helper function for status button styling
+function getStatusButtonClass(status: ItemStatus, isSelected: boolean): string {
+    if (!isSelected) return '';
+
+    const classes: Record<ItemStatus, string> = {
+        'In Stock': 'border-status-in-stock bg-status-in-stock/10 text-status-in-stock',
+        'Checked Out': 'border-status-checked-out bg-status-checked-out/10 text-status-checked-out',
+        'Maintenance': 'border-status-maintenance bg-status-maintenance/10 text-status-maintenance',
+        'Disposed': 'border-status-disposed bg-status-disposed/10 text-status-disposed',
+    };
+
+    return classes[status];
+}
+
+// Icons
+function RefreshIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+    );
+}
+
+function SaveIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+        </svg>
+    );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+    );
+}
+
+function QRIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+        </svg>
+    );
+}
+
+function UploadIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+    );
+}

@@ -1,26 +1,176 @@
 @import "tailwindcss";
 
+/* Phantone color palette for Inventory Management System */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Phantone - Main background */
+  --phantone: #F5F0EB;
+  --phantone-dark: #1A1814;
+  
+  /* Background/Foreground */
+  --background: var(--phantone);
+  --foreground: #1A1814;
+  
+  /* Primary Blue - Actions, Submit, In Stock */
+  --primary: #2563EB;
+  --primary-hover: #1D4ED8;
+  --primary-light: #3B82F6;
+  
+  /* Danger Red - Remove, Lost, Warnings */
+  --danger: #DC2626;
+  --danger-hover: #B91C1C;
+  --danger-light: #EF4444;
+  
+  /* Status Colors */
+  --status-in-stock: #22C55E;
+  --status-checked-out: #F59E0B;
+  --status-maintenance: #8B5CF6;
+  --status-disposed: #6B7280;
+  
+  /* Surface colors */
+  --surface: #FFFFFF;
+  --surface-hover: #F9FAFB;
+  --border: #E5E7EB;
+  --muted: #6B7280;
+}
+
+.dark {
+  --phantone: #1A1814;
+  --phantone-dark: #0F0D0A;
+  
+  --background: var(--phantone);
+  --foreground: #F5F0EB;
+  
+  --primary: #3B82F6;
+  --primary-hover: #60A5FA;
+  --primary-light: #2563EB;
+  
+  --danger: #EF4444;
+  --danger-hover: #F87171;
+  --danger-light: #DC2626;
+  
+  --status-in-stock: #4ADE80;
+  --status-checked-out: #FBBF24;
+  --status-maintenance: #A78BFA;
+  --status-disposed: #9CA3AF;
+  
+  --surface: #262320;
+  --surface-hover: #2E2A26;
+  --border: #3D3833;
+  --muted: #9CA3AF;
 }
 
 @theme inline {
+  --color-phantone: var(--phantone);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-light: var(--danger-light);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-status-in-stock: var(--status-in-stock);
+  --color-status-checked-out: var(--status-checked-out);
+  --color-status-maintenance: var(--status-maintenance);
+  --color-status-disposed: var(--status-disposed);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Focus styles for accessibility */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Print styles for QR codes */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+  
+  .qr-print-container {
+    page-break-inside: avoid;
+    padding: 1rem;
+    text-align: center;
+  }
+  
+  .qr-print-container img {
+    max-width: 200px;
+    margin: 0 auto;
+  }
+  
+  .qr-print-label {
+    font-size: 14pt;
+    font-weight: bold;
+    margin-top: 0.5rem;
+  }
+}
+
+/* Mobile-first responsive utilities */
+.container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+@media (min-width: 640px) {
+  .container {
+    padding: 0 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    padding: 0 2rem;
+  }
 }
