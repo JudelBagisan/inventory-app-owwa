@@ -6,25 +6,30 @@ interface StatusBadgeProps {
 }
 
 const statusConfig: Record<ItemStatus, { bg: string; text: string; dot: string }> = {
-    'In Stock': {
-        bg: 'bg-status-in-stock/10',
-        text: 'text-status-in-stock',
-        dot: 'bg-status-in-stock',
+    'Brand New': {
+        bg: 'bg-emerald-500/10',
+        text: 'text-emerald-600',
+        dot: 'bg-emerald-500',
     },
-    'Checked Out': {
-        bg: 'bg-status-checked-out/10',
-        text: 'text-status-checked-out',
-        dot: 'bg-status-checked-out',
+    'Good': {
+        bg: 'bg-blue-500/10',
+        text: 'text-blue-600',
+        dot: 'bg-blue-500',
     },
-    'Maintenance': {
-        bg: 'bg-status-maintenance/10',
-        text: 'text-status-maintenance',
-        dot: 'bg-status-maintenance',
+    'Usable': {
+        bg: 'bg-amber-500/10',
+        text: 'text-amber-600',
+        dot: 'bg-amber-500',
     },
-    'Disposed': {
-        bg: 'bg-status-disposed/10',
-        text: 'text-status-disposed',
-        dot: 'bg-status-disposed',
+    'Repair Needed': {
+        bg: 'bg-orange-500/10',
+        text: 'text-orange-600',
+        dot: 'bg-orange-500',
+    },
+    'Unusable': {
+        bg: 'bg-red-500/10',
+        text: 'text-red-600',
+        dot: 'bg-red-500',
     },
 };
 
@@ -41,7 +46,7 @@ const dotSizes = {
 };
 
 export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
-    const config = statusConfig[status];
+    const config = statusConfig[status] || statusConfig['Usable'];
 
     return (
         <span
@@ -55,7 +60,7 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
 
 // Simple status dot indicator
 export function StatusDot({ status, size = 'md' }: StatusBadgeProps) {
-    const config = statusConfig[status];
+    const config = statusConfig[status] || statusConfig['Usable'];
 
     return (
         <span
@@ -64,3 +69,4 @@ export function StatusDot({ status, size = 'md' }: StatusBadgeProps) {
         />
     );
 }
+

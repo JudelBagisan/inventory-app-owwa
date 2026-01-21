@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Item, ItemFormData, ItemStatus, ITEM_STATUSES, Unit, LOCATIONS, Location } from '@/lib/types';
+import { Item, ItemFormData, ItemStatus, ITEM_STATUSES, Unit, ItemCategory, ITEM_CATEGORIES, LOCATION_PRESETS } from '@/lib/types';
 import { StatusBadge } from './StatusBadge';
 import { PropertySticker } from './PropertySticker';
 import { ConfirmModal } from './ConfirmModal';
@@ -33,14 +33,14 @@ export function InventoryItemForm({
         acquisition_cost: item?.acquisition_cost || null,
         location: item?.location || '',
         end_user: item?.end_user || '',
-        status: item?.status || 'In Stock',
+        status: item?.status || 'Brand New',
+        category: item?.category || 'Other Equipments',
         remarks: item?.remarks || '',
         itr_or_no: item?.itr_or_no || '',
         property_number: item?.property_number || '',
         image_url: item?.image_url || '',
         quantity: item?.quantity || 0,
         unit: item?.unit || '',
-        owner: item?.owner || '',
     });
     const [units, setUnits] = useState<Unit[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -233,6 +233,29 @@ export function InventoryItemForm({
                         )}
                     </div>
 
+                    {/* Category */}
+                    <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                            Category *
+                        </label>
+                        {isEditable ? (
+                            <select
+                                value={formData.category}
+                                onChange={(e) => handleChange('category', e.target.value as ItemCategory)}
+                                className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                required
+                            >
+                                {ITEM_CATEGORIES.map((category) => (
+                                    <option key={category} value={category}>
+                                        {category}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            <p className="text-foreground">{formData.category}</p>
+                        )}
+                    </div>
+
                     {/* Description */}
                     <div>
                         <label className="block text-sm font-medium text-foreground mb-2">
@@ -345,18 +368,21 @@ export function InventoryItemForm({
                                 Location
                             </label>
                             {isEditable ? (
-                                <select
-                                    value={formData.location}
-                                    onChange={(e) => handleChange('location', e.target.value as Location | '')}
-                                    className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                                >
-                                    <option value="">Select location</option>
-                                    {LOCATIONS.map((loc) => (
-                                        <option key={loc} value={loc}>
-                                            {loc}
-                                        </option>
-                                    ))}
-                                </select>
+                                <>
+                                    <input
+                                        type="text"
+                                        list="location-presets"
+                                        value={formData.location}
+                                        onChange={(e) => handleChange('location', e.target.value)}
+                                        className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                        placeholder="Select or type a location"
+                                    />
+                                    <datalist id="location-presets">
+                                        {LOCATION_PRESETS.map((location) => (
+                                            <option key={location} value={location} />
+                                        ))}
+                                    </datalist>
+                                </>
                             ) : (
                                 <p className="text-foreground">{formData.location || '-'}</p>
                             )}
@@ -465,31 +491,13 @@ export function InventoryItemForm({
                         </div>
                     </div>
 
-                    {/* Owner */}
-                    <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
-                            Owner/Department
-                        </label>
-                        {isEditable ? (
-                            <input
-                                type="text"
-                                value={formData.owner}
-                                onChange={(e) => handleChange('owner', e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                                placeholder="Item owner or department"
-                            />
-                        ) : (
-                            <p className="text-lg text-foreground">{formData.owner || '-'}</p>
-                        )}
-                    </div>
-
                     {/* Status */}
                     <div>
                         <label className="block text-sm font-medium text-foreground mb-2">
                             Status
                         </label>
                         {isEditable ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                                 {ITEM_STATUSES.map((status) => (
                                     <button
                                         key={status}
@@ -621,7 +629,7 @@ export function InventoryItemForm({
 
             {/* Full-Screen Image Modal */}
             {showImageModal && (imagePreview || formData.image_url) && (
-                <div 
+                <div
                     className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 animate-in fade-in duration-200"
                     onClick={() => setShowImageModal(false)}
                 >
@@ -657,10 +665,11 @@ function getStatusButtonClass(status: ItemStatus, isSelected: boolean): string {
     if (!isSelected) return '';
 
     const classes: Record<ItemStatus, string> = {
-        'In Stock': 'border-status-in-stock bg-status-in-stock/10 text-status-in-stock',
-        'Checked Out': 'border-status-checked-out bg-status-checked-out/10 text-status-checked-out',
-        'Maintenance': 'border-status-maintenance bg-status-maintenance/10 text-status-maintenance',
-        'Disposed': 'border-status-disposed bg-status-disposed/10 text-status-disposed',
+        'Brand New': 'border-emerald-500 bg-emerald-500/10 text-emerald-600',
+        'Good': 'border-blue-500 bg-blue-500/10 text-blue-600',
+        'Usable': 'border-amber-500 bg-amber-500/10 text-amber-600',
+        'Repair Needed': 'border-orange-500 bg-orange-500/10 text-orange-600',
+        'Unusable': 'border-red-500 bg-red-500/10 text-red-600',
     };
 
     return classes[status];

@@ -103,13 +103,50 @@ export function QRGenerator({ data, itemName, size = 200 }: QRGeneratorProps) {
         printWindow.document.close();
     };
 
-    const handleDownload = () => {
+    const handleDownload = async () => {
         if (!qrDataUrl) return;
 
-        const link = document.createElement('a');
-        link.download = `qr-${data}.png`;
-        link.href = qrDataUrl;
-        link.click();
+        // Create a canvas to combine QR code and text
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const qrSize = 300;
+        const padding = 30;
+        const textHeight = 60;
+        const canvasWidth = qrSize + padding * 2;
+        const canvasHeight = qrSize + padding * 2 + textHeight;
+
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        // White background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Load and draw QR code
+        const qrImage = new Image();
+        qrImage.onload = () => {
+            ctx.drawImage(qrImage, padding, padding, qrSize, qrSize);
+
+            // Draw item name
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(itemName.toUpperCase(), canvasWidth / 2, qrSize + padding + 25);
+
+            // Draw ID
+            ctx.font = '12px Arial';
+            ctx.fillStyle = '#666666';
+            ctx.fillText(data, canvasWidth / 2, qrSize + padding + 45);
+
+            // Download the composite image
+            const link = document.createElement('a');
+            link.download = `qr-sticker-${data}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        };
+        qrImage.src = qrDataUrl;
     };
 
     if (isLoading) {
@@ -146,10 +183,10 @@ export function QRGenerator({ data, itemName, size = 200 }: QRGeneratorProps) {
                 </button>
                 <button
                     onClick={handleDownload}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface border border-border text-foreground font-medium hover:bg-surface-hover transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors shadow-md hover:shadow-lg"
                 >
                     <DownloadIcon className="w-5 h-5" />
-                    Download
+                    Download PNG
                 </button>
             </div>
         </div>

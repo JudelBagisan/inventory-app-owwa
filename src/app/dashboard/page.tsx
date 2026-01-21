@@ -1,21 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Item, ItemFormData, ITEM_STATUSES, ItemStatus } from '@/lib/types';
+import { useState, useEffect, useMemo } from 'react';
+import { Item, ItemFormData, ITEM_STATUSES, ItemStatus, LOCATION_PRESETS, ITEM_CATEGORIES, ItemCategory } from '@/lib/types';
 import { StatusBadge } from '@/components/StatusBadge';
-import { QRGeneratorMini } from '@/components/QRGenerator';
 import { InventoryItemForm } from '@/components/InventoryItemForm';
 import { createClient } from '@/lib/supabase/client';
+import ExcelJS from 'exceljs';
+
+type SortOption = 'date-asc' | 'date-desc' | 'name-asc';
 
 export default function DashboardPage() {
     const [items, setItems] = useState<Item[]>([]);
-    const [filteredItems, setFilteredItems] = useState<Item[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<ItemStatus | 'All'>('All');
+    const [categoryFilter, setCategoryFilter] = useState<ItemCategory | 'All'>('All');
+    const [locationFilter, setLocationFilter] = useState('');
+    const [sortOption, setSortOption] = useState<SortOption>('date-desc');
     const [isLoading, setIsLoading] = useState(true);
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
     const [showAddForm, setShowAddForm] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(20);
 
     const supabase = createClient();
 
@@ -23,9 +28,65 @@ export default function DashboardPage() {
         fetchItems();
     }, []);
 
+    // Filtered and sorted items using useMemo
+    const filteredItems = useMemo(() => {
+        let filtered = items;
+
+        // Apply search filter
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(
+                (item) =>
+                    item.name.toLowerCase().includes(query) ||
+                    item.unique_id.toLowerCase().includes(query) ||
+                    item.serial_number?.toLowerCase().includes(query) ||
+                    item.property_number?.toLowerCase().includes(query) ||
+                    item.end_user?.toLowerCase().includes(query) ||
+                    item.description?.toLowerCase().includes(query)
+            );
+        }
+
+        // Apply category filter
+        if (categoryFilter !== 'All') {
+            filtered = filtered.filter((item) => item.category === categoryFilter);
+        }
+
+        // Apply location filter
+        if (locationFilter) {
+            filtered = filtered.filter((item) => item.location === locationFilter);
+        }
+
+        // Apply sorting
+        filtered = [...filtered].sort((a, b) => {
+            switch (sortOption) {
+                case 'date-asc':
+                    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                case 'date-desc':
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                case 'name-asc':
+                    return a.name.localeCompare(b.name);
+                default:
+                    return 0;
+            }
+        });
+
+        return filtered;
+    }, [items, searchQuery, categoryFilter, locationFilter, sortOption]);
+
+    // Paginated items
+    const paginatedItems = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return filteredItems.slice(startIndex, endIndex);
+    }, [filteredItems, currentPage, itemsPerPage]);
+
+    // Total pages calculation
+    const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+
+    // Reset to page 1 when filters change
     useEffect(() => {
-        filterItems();
-    }, [items, searchQuery, statusFilter]);
+        setCurrentPage(1);
+    }, [searchQuery, categoryFilter, locationFilter, sortOption]);
 
     const fetchItems = async () => {
         try {
@@ -44,32 +105,6 @@ export default function DashboardPage() {
         } finally {
             setIsLoading(false);
         }
-    };
-
-    const filterItems = () => {
-        let filtered = items;
-
-        // Apply search filter
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            filtered = filtered.filter(
-                (item) =>
-                    item.name.toLowerCase().includes(query) ||
-                    item.unique_id.toLowerCase().includes(query) ||
-                    item.serial_number?.toLowerCase().includes(query) ||
-                    item.property_number?.toLowerCase().includes(query) ||
-                    item.end_user?.toLowerCase().includes(query) ||
-                    item.description?.toLowerCase().includes(query) ||
-                    item.owner?.toLowerCase().includes(query)
-            );
-        }
-
-        // Apply status filter
-        if (statusFilter !== 'All') {
-            filtered = filtered.filter((item) => item.status === statusFilter);
-        }
-
-        setFilteredItems(filtered);
     };
 
     const handleSaveItem = async (data: ItemFormData) => {
@@ -113,8 +148,108 @@ export default function DashboardPage() {
         }
     };
 
-    const getStatusCount = (status: ItemStatus) => {
-        return items.filter((item) => item.status === status).length;
+    const getCategoryCount = (category: ItemCategory) => {
+        return items.filter((item) => item.category === category).length;
+    };
+
+    const handleExportToExcel = async () => {
+        // Create workbook and worksheet
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Inventory');
+
+        // Define columns with headers
+        const columns = [
+            { header: 'Item Name', key: 'name', width: 25 },
+            { header: 'Unique ID', key: 'unique_id', width: 18 },
+            { header: 'Description', key: 'description', width: 30 },
+            { header: 'Serial Number', key: 'serial_number', width: 20 },
+            { header: 'Property Number', key: 'property_number', width: 25 },
+            { header: 'Category', key: 'category', width: 22 },
+            { header: 'Location', key: 'location', width: 20 },
+            { header: 'End User', key: 'end_user', width: 20 },
+            { header: 'Status', key: 'status', width: 15 },
+            { header: 'Acquisition Date', key: 'acquisition_date', width: 18 },
+            { header: 'Acquisition Cost', key: 'acquisition_cost', width: 18 },
+            { header: 'Quantity', key: 'quantity', width: 10 },
+            { header: 'Unit', key: 'unit', width: 10 },
+            { header: 'ITR OR No.', key: 'itr_or_no', width: 18 },
+            { header: 'Remarks', key: 'remarks', width: 30 },
+        ];
+
+        worksheet.columns = columns;
+
+        // Style header row
+        const headerRow = worksheet.getRow(1);
+        headerRow.height = 25;
+        headerRow.eachCell((cell) => {
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: '2563EB' }, // Blue color
+            };
+            cell.font = {
+                bold: true,
+                color: { argb: 'FFFFFF' },
+                size: 11,
+            };
+            cell.alignment = {
+                vertical: 'middle',
+                horizontal: 'center',
+            };
+            cell.border = {
+                top: { style: 'thin', color: { argb: '000000' } },
+                left: { style: 'thin', color: { argb: '000000' } },
+                bottom: { style: 'thin', color: { argb: '000000' } },
+                right: { style: 'thin', color: { argb: '000000' } },
+            };
+        });
+
+        // Add data rows (only filtered items)
+        filteredItems.forEach((item) => {
+            const row = worksheet.addRow({
+                name: item.name,
+                unique_id: item.unique_id,
+                description: item.description || '',
+                serial_number: item.serial_number || '',
+                property_number: item.property_number || '',
+                category: item.category,
+                location: item.location || '',
+                end_user: item.end_user || '',
+                status: item.status,
+                acquisition_date: item.acquisition_date || '',
+                acquisition_cost: item.acquisition_cost ? `₱${item.acquisition_cost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}` : '',
+                quantity: item.quantity,
+                unit: item.unit || '',
+                itr_or_no: item.itr_or_no || '',
+                remarks: item.remarks || '',
+            });
+
+            // Style data rows
+            row.eachCell((cell) => {
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'CCCCCC' } },
+                    left: { style: 'thin', color: { argb: 'CCCCCC' } },
+                    bottom: { style: 'thin', color: { argb: 'CCCCCC' } },
+                    right: { style: 'thin', color: { argb: 'CCCCCC' } },
+                };
+                cell.alignment = { vertical: 'middle' };
+            });
+        });
+
+        // Generate filename with date and filter info
+        const date = new Date().toISOString().split('T')[0];
+        const filterInfo = categoryFilter !== 'All' ? `_${categoryFilter.replace(/\s+/g, '-')}` : '';
+        const filename = `inventory_export${filterInfo}_${date}.xlsx`;
+
+        // Download
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
     };
 
     const formatCurrency = (amount: number | null) => {
@@ -148,49 +283,162 @@ export default function DashboardPage() {
                 </button>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {ITEM_STATUSES.map((status) => (
-                    <div
-                        key={status}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all ${statusFilter === status
-                            ? 'border-primary bg-primary/5 shadow-md'
-                            : 'border-border bg-surface hover:border-primary/50'
-                            }`}
-                        onClick={() => setStatusFilter(statusFilter === status ? 'All' : status)}
-                    >
-                        <StatusBadge status={status} size="sm" />
-                        <p className="text-2xl font-bold text-foreground mt-2">
-                            {getStatusCount(status)}
-                        </p>
+            {/* Category Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div
+                    className={`p-5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg cursor-pointer transition-all transform hover:scale-[1.02] hover:shadow-xl ${categoryFilter === 'Furniture and Fixtures' ? 'ring-4 ring-white/50' : ''}`}
+                    onClick={() => setCategoryFilter(categoryFilter === 'Furniture and Fixtures' ? 'All' : 'Furniture and Fixtures')}
+                >
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-white/80 text-sm font-medium">Furniture & Fixtures</p>
+                            <p className="text-4xl font-bold mt-1">
+                                {getCategoryCount('Furniture and Fixtures')}
+                            </p>
+                            <p className="text-white/60 text-xs mt-1">
+                                {categoryFilter === 'Furniture and Fixtures' ? 'Click to show all' : 'Click to filter'}
+                            </p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-red-400/30">
+                            <CategoryIcon category="Furniture and Fixtures" className="w-8 h-8 text-white" />
+                        </div>
                     </div>
-                ))}
+                </div>
+                <div
+                    className={`p-5 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg cursor-pointer transition-all transform hover:scale-[1.02] hover:shadow-xl ${categoryFilter === 'ICT Equipments' ? 'ring-4 ring-white/50' : ''}`}
+                    onClick={() => setCategoryFilter(categoryFilter === 'ICT Equipments' ? 'All' : 'ICT Equipments')}
+                >
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-white/80 text-sm font-medium">ICT Equipments</p>
+                            <p className="text-4xl font-bold mt-1">
+                                {getCategoryCount('ICT Equipments')}
+                            </p>
+                            <p className="text-white/60 text-xs mt-1">
+                                {categoryFilter === 'ICT Equipments' ? 'Click to show all' : 'Click to filter'}
+                            </p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-blue-400/30">
+                            <CategoryIcon category="ICT Equipments" className="w-8 h-8 text-white" />
+                        </div>
+                    </div>
+                </div>
+                <div
+                    className={`p-5 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-lg cursor-pointer transition-all transform hover:scale-[1.02] hover:shadow-xl ${categoryFilter === 'Other Equipments' ? 'ring-4 ring-white/50' : ''}`}
+                    onClick={() => setCategoryFilter(categoryFilter === 'Other Equipments' ? 'All' : 'Other Equipments')}
+                >
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-white/80 text-sm font-medium">Other Equipments</p>
+                            <p className="text-4xl font-bold mt-1">
+                                {getCategoryCount('Other Equipments')}
+                            </p>
+                            <p className="text-white/60 text-xs mt-1">
+                                {categoryFilter === 'Other Equipments' ? 'Click to show all' : 'Click to filter'}
+                            </p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-teal-400/30">
+                            <CategoryIcon category="Other Equipments" className="w-8 h-8 text-white" />
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                <div className="flex-1 relative">
-                    <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search by name, serial number, property number, end user..."
-                        className="w-full pl-12 pr-4 py-3 rounded-lg bg-surface border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                    />
+            {/* Toolbar: Filters, Sort, Export */}
+            <div className="bg-surface rounded-xl border border-border p-4 mb-6">
+                <div className="flex flex-col lg:flex-row gap-4">
+                    {/* Search */}
+                    <div className="flex-1 relative">
+                        <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search by name, serial number, property number..."
+                            className="w-full pl-12 pr-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        />
+                    </div>
+
+                    {/* Filters Row */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        {/* Location Filter */}
+                        <select
+                            value={locationFilter}
+                            onChange={(e) => setLocationFilter(e.target.value)}
+                            className="px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        >
+                            <option value="">All Locations ({items.length})</option>
+                            {LOCATION_PRESETS.map((location) => (
+                                <option key={location} value={location}>
+                                    {location}
+                                </option>
+                            ))}
+                        </select>
+
+                        {/* Sort */}
+                        <select
+                            value={sortOption}
+                            onChange={(e) => setSortOption(e.target.value as SortOption)}
+                            className="px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        >
+                            <option value="date-desc">Date Added (Newest)</option>
+                            <option value="date-asc">Date Added (Oldest)</option>
+                            <option value="name-asc">Name (A-Z)</option>
+                        </select>
+
+                        {/* Export Button */}
+                        <button
+                            onClick={handleExportToExcel}
+                            disabled={filteredItems.length === 0}
+                            className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                        >
+                            <ExportIcon className="w-5 h-5" />
+                            Export to Excel
+                        </button>
+                    </div>
                 </div>
-                <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as ItemStatus | 'All')}
-                    className="px-4 py-3 rounded-lg bg-surface border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                >
-                    <option value="All">All Status ({items.length})</option>
-                    {ITEM_STATUSES.map((status) => (
-                        <option key={status} value={status}>
-                            {status} ({getStatusCount(status)})
-                        </option>
-                    ))}
-                </select>
+
+                {/* Active Filters Display */}
+                {(categoryFilter !== 'All' || locationFilter || searchQuery) && (
+                    <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border">
+                        <span className="text-sm text-muted">Active filters:</span>
+                        {categoryFilter !== 'All' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-sm">
+                                Category: {categoryFilter}
+                                <button onClick={() => setCategoryFilter('All')} className="hover:text-primary-hover">×</button>
+                            </span>
+                        )}
+                        {locationFilter && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-sm">
+                                Location: {locationFilter}
+                                <button onClick={() => setLocationFilter('')} className="hover:text-primary-hover">×</button>
+                            </span>
+                        )}
+                        {searchQuery && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-sm">
+                                Search: {searchQuery}
+                                <button onClick={() => setSearchQuery('')} className="hover:text-primary-hover">×</button>
+                            </span>
+                        )}
+                        <button
+                            onClick={() => {
+                                setCategoryFilter('All');
+                                setLocationFilter('');
+                                setSearchQuery('');
+                            }}
+                            className="text-sm text-muted hover:text-foreground underline"
+                        >
+                            Clear all
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Results count */}
+            <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-muted">
+                    Showing {filteredItems.length} of {items.length} items
+                </p>
             </div>
 
             {/* Error Message */}
@@ -216,7 +464,7 @@ export default function DashboardPage() {
                     <BoxIcon className="w-16 h-16 text-muted mx-auto mb-4" />
                     <p className="text-xl font-medium text-foreground">No items found</p>
                     <p className="text-muted mt-2">
-                        {searchQuery || statusFilter !== 'All'
+                        {searchQuery || categoryFilter !== 'All' || locationFilter
                             ? 'Try adjusting your search or filters'
                             : 'Add your first item to get started'}
                     </p>
@@ -230,9 +478,8 @@ export default function DashboardPage() {
                                 <tr>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Image</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Item Name</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Category</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Serial No.</th>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Acq. Date</th>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Acq. Cost</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Location</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">End User</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Status</th>
@@ -240,7 +487,7 @@ export default function DashboardPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
-                                {filteredItems.map((item) => (
+                                {paginatedItems.map((item) => (
                                     <tr key={item.id} className="hover:bg-surface-hover transition-colors">
                                         <td className="px-3 py-3">
                                             {item.image_url ? (
@@ -262,18 +509,13 @@ export default function DashboardPage() {
                                             </div>
                                         </td>
                                         <td className="px-3 py-3">
+                                            <CategoryBadge category={item.category} />
+                                        </td>
+                                        <td className="px-3 py-3">
                                             <span className="text-sm font-mono text-foreground">{item.serial_number || '-'}</span>
                                         </td>
                                         <td className="px-3 py-3">
-                                            <span className="text-sm text-foreground">{formatDate(item.acquisition_date)}</span>
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            <span className="text-sm font-medium text-foreground">{formatCurrency(item.acquisition_cost)}</span>
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary">
-                                                {item.location || '-'}
-                                            </span>
+                                            <span className="text-sm text-foreground">{item.location || '-'}</span>
                                         </td>
                                         <td className="px-3 py-3">
                                             <span className="text-sm text-foreground">{item.end_user || '-'}</span>
@@ -297,7 +539,7 @@ export default function DashboardPage() {
 
                     {/* Mobile/Tablet Cards */}
                     <div className="lg:hidden divide-y divide-border">
-                        {filteredItems.map((item) => (
+                        {paginatedItems.map((item) => (
                             <div
                                 key={item.id}
                                 className="p-4 hover:bg-surface-hover transition-colors cursor-pointer"
@@ -319,7 +561,7 @@ export default function DashboardPage() {
                                         <div className="flex items-start justify-between gap-2">
                                             <div>
                                                 <p className="font-medium text-foreground">{item.name}</p>
-                                                <p className="text-sm text-muted line-clamp-1">{item.description || '-'}</p>
+                                                <CategoryBadge category={item.category} />
                                             </div>
                                             <StatusBadge status={item.status} size="sm" />
                                         </div>
@@ -330,15 +572,7 @@ export default function DashboardPage() {
                                             </div>
                                             <div>
                                                 <span className="text-muted">Location: </span>
-                                                <span className="text-primary font-medium">{item.location || '-'}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted">End User: </span>
-                                                <span className="text-foreground">{item.end_user || '-'}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted">Cost: </span>
-                                                <span className="text-foreground font-medium">{formatCurrency(item.acquisition_cost)}</span>
+                                                <span className="text-foreground">{item.location || '-'}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -347,6 +581,71 @@ export default function DashboardPage() {
                             </div>
                         ))}
                     </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-4 border-t border-border bg-surface-hover">
+                            <div className="text-sm text-muted">
+                                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredItems.length)} of {filteredItems.length} items
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(1)}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-2 rounded-lg border border-border text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-surface transition-colors"
+                                >
+                                    First
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-2 rounded-lg border border-border text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-surface transition-colors"
+                                >
+                                    Previous
+                                </button>
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                        let pageNum;
+                                        if (totalPages <= 5) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage <= 3) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pageNum = totalPages - 4 + i;
+                                        } else {
+                                            pageNum = currentPage - 2 + i;
+                                        }
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum
+                                                    ? 'bg-primary text-white'
+                                                    : 'border border-border hover:bg-surface'
+                                                    }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-2 rounded-lg border border-border text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-surface transition-colors"
+                                >
+                                    Next
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(totalPages)}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-2 rounded-lg border border-border text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-surface transition-colors"
+                                >
+                                    Last
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -369,6 +668,48 @@ export default function DashboardPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+// Category Badge Component
+function CategoryBadge({ category }: { category: ItemCategory }) {
+    const config: Record<ItemCategory, { bg: string; text: string }> = {
+        'Furniture and Fixtures': { bg: 'bg-red-600 dark:bg-red-700', text: 'text-white' },
+        'ICT Equipments': { bg: 'bg-blue-600 dark:bg-blue-700', text: 'text-white' },
+        'Other Equipments': { bg: 'bg-teal-600 dark:bg-teal-700', text: 'text-white' },
+    };
+
+    const cfg = config[category] || config['Other Equipments'];
+    const shortLabel = category === 'Furniture and Fixtures' ? 'Furniture' :
+        category === 'ICT Equipments' ? 'ICT' : 'Others';
+
+    return (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+            {shortLabel}
+        </span>
+    );
+}
+
+// Category Icon Component
+function CategoryIcon({ category, className }: { category: ItemCategory; className?: string }) {
+    if (category === 'Furniture and Fixtures') {
+        return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+        );
+    }
+    if (category === 'ICT Equipments') {
+        return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
+            </svg>
+        );
+    }
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+        </svg>
     );
 }
 
@@ -409,6 +750,23 @@ function ImageIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+    );
+}
+
+function LocationIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+        </svg>
+    );
+}
+
+function ExportIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
     );
 }

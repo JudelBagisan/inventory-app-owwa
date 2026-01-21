@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import QRCode from 'qrcode';
+import html2canvas from 'html2canvas';
 import { Item } from '@/lib/types';
 
 interface PropertyStickerProps {
@@ -10,8 +11,10 @@ interface PropertyStickerProps {
 }
 
 export function PropertySticker({ item, onClose }: PropertyStickerProps) {
+    const stickerRef = useRef<HTMLDivElement>(null);
     const [qrDataUrl, setQrDataUrl] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
+    const [isDownloading, setIsDownloading] = useState(false);
 
     useEffect(() => {
         const generateQR = async () => {
@@ -286,6 +289,65 @@ export function PropertySticker({ item, onClose }: PropertyStickerProps) {
         printWindow.document.close();
     };
 
+    const handleDownloadSticker = async () => {
+        if (!stickerRef.current) return;
+
+        try {
+            setIsDownloading(true);
+
+            // Use html2canvas to capture the sticker element
+            const canvas = await html2canvas(stickerRef.current, {
+                scale: 3, // Higher scale for better quality
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                onclone: (clonedDoc) => {
+                    // Override lab() colors with rgb equivalents for html2canvas compatibility
+                    const style = clonedDoc.createElement('style');
+                    style.textContent = `
+                        * {
+                            color: rgb(0, 0, 0) !important;
+                        }
+                        .bg-white {
+                            background-color: rgb(255, 255, 255) !important;
+                        }
+                        .bg-gradient-to-br {
+                            background: linear-gradient(135deg, rgb(30, 58, 138) 0%, rgb(37, 99, 235) 100%) !important;
+                        }
+                        .from-blue-900 { background-color: rgb(30, 58, 138) !important; }
+                        .to-blue-600 { background-color: rgb(37, 99, 235) !important; }
+                        .bg-blue-900 { background-color: rgb(30, 58, 138) !important; }
+                        .bg-blue-600 { background-color: rgb(37, 99, 235) !important; }
+                        .bg-red-50 { background-color: rgb(254, 242, 242) !important; }
+                        .text-white { color: rgb(255, 255, 255) !important; }
+                        .text-gray-500 { color: rgb(107, 114, 128) !important; }
+                        .text-red-600 { color: rgb(220, 38, 38) !important; }
+                        .border-gray-300 { border-color: rgb(209, 213, 219) !important; }
+                        .border-gray-200 { border-color: rgb(229, 231, 235) !important; }
+                        .border-gray-400 { border-color: rgb(156, 163, 175) !important; }
+                    `;
+                    clonedDoc.head.appendChild(style);
+                },
+            });
+
+            // Convert to blob and download
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = `property-sticker-${item.property_number || item.unique_id}.png`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png', 1.0);
+        } catch (err) {
+            console.error('Error downloading sticker:', err);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center w-full h-64">
@@ -297,7 +359,7 @@ export function PropertySticker({ item, onClose }: PropertyStickerProps) {
     return (
         <div className="flex flex-col items-center">
             {/* Preview */}
-            <div className="bg-white rounded-xl shadow-lg border-2 border-gray-300 overflow-hidden" style={{ width: '400px' }}>
+            <div ref={stickerRef} className="bg-white rounded-xl shadow-lg border-2 border-gray-300 overflow-hidden" style={{ width: '400px' }}>
                 {/* Sticker Preview */}
                 <div className="grid grid-cols-2">
                     {/* Left Section */}
@@ -367,18 +429,35 @@ export function PropertySticker({ item, onClose }: PropertyStickerProps) {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-wrap gap-3 mt-6">
                 <button
                     onClick={handlePrint}
-                    className="flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover transition-colors shadow-md hover:shadow-lg"
+                    className="flex items-center gap-2 px-5 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover transition-colors shadow-md hover:shadow-lg"
                 >
                     <PrintIcon className="w-5 h-5" />
                     Print Sticker
                 </button>
+                <button
+                    onClick={handleDownloadSticker}
+                    disabled={isDownloading}
+                    className="flex items-center gap-2 px-5 py-3 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg"
+                >
+                    {isDownloading ? (
+                        <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Downloading...
+                        </>
+                    ) : (
+                        <>
+                            <DownloadIcon className="w-5 h-5" />
+                            Download PNG
+                        </>
+                    )}
+                </button>
                 {onClose && (
                     <button
                         onClick={onClose}
-                        className="flex items-center gap-2 px-6 py-3 rounded-lg border border-border text-foreground font-medium hover:bg-surface-hover transition-colors"
+                        className="flex items-center gap-2 px-5 py-3 rounded-lg border border-border text-foreground font-medium hover:bg-surface-hover transition-colors"
                     >
                         Close
                     </button>
@@ -395,3 +474,12 @@ function PrintIcon({ className }: { className?: string }) {
         </svg>
     );
 }
+
+function DownloadIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+    );
+}
+

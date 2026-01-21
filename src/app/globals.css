@@ -5,27 +5,33 @@
   /* Phantone - Main background */
   --phantone: #F5F0EB;
   --phantone-dark: #1A1814;
-  
+
   /* Background/Foreground */
   --background: var(--phantone);
   --foreground: #1A1814;
-  
-  /* Primary Blue - Actions, Submit, In Stock */
+
+  /* Primary Blue - Actions, Submit */
   --primary: #2563EB;
   --primary-hover: #1D4ED8;
   --primary-light: #3B82F6;
-  
-  /* Danger Red - Remove, Lost, Warnings */
+
+  /* Danger Red - Remove, Warnings */
   --danger: #DC2626;
   --danger-hover: #B91C1C;
   --danger-light: #EF4444;
-  
-  /* Status Colors */
-  --status-in-stock: #22C55E;
-  --status-checked-out: #F59E0B;
-  --status-maintenance: #8B5CF6;
-  --status-disposed: #6B7280;
-  
+
+  /* Status Colors (New) */
+  --status-brand-new: #10B981;
+  --status-good: #3B82F6;
+  --status-usable: #F59E0B;
+  --status-repair-needed: #F97316;
+  --status-unusable: #EF4444;
+
+  /* Category Colors */
+  --category-furniture: #DC2626;
+  --category-ict: #2563EB;
+  --category-other: #0D9488;
+
   /* Surface colors */
   --surface: #FFFFFF;
   --surface-hover: #F9FAFB;
@@ -36,23 +42,30 @@
 .dark {
   --phantone: #1A1814;
   --phantone-dark: #0F0D0A;
-  
+
   --background: var(--phantone);
   --foreground: #F5F0EB;
-  
+
   --primary: #3B82F6;
   --primary-hover: #60A5FA;
   --primary-light: #2563EB;
-  
+
   --danger: #EF4444;
   --danger-hover: #F87171;
   --danger-light: #DC2626;
-  
-  --status-in-stock: #4ADE80;
-  --status-checked-out: #FBBF24;
-  --status-maintenance: #A78BFA;
-  --status-disposed: #9CA3AF;
-  
+
+  /* Status Colors (New) - Dark Mode */
+  --status-brand-new: #34D399;
+  --status-good: #60A5FA;
+  --status-usable: #FBBF24;
+  --status-repair-needed: #FB923C;
+  --status-unusable: #F87171;
+
+  /* Category Colors - Dark Mode */
+  --category-furniture: #F87171;
+  --category-ict: #60A5FA;
+  --category-other: #2DD4BF;
+
   --surface: #262320;
   --surface-hover: #2E2A26;
   --border: #3D3833;
@@ -128,26 +141,26 @@ body {
     background: white !important;
     color: black !important;
   }
-  
+
   .no-print {
     display: none !important;
   }
-  
+
   .print-only {
     display: block !important;
   }
-  
+
   .qr-print-container {
     page-break-inside: avoid;
     padding: 1rem;
     text-align: center;
   }
-  
+
   .qr-print-container img {
     max-width: 200px;
     margin: 0 auto;
   }
-  
+
   .qr-print-label {
     font-size: 14pt;
     font-weight: bold;
