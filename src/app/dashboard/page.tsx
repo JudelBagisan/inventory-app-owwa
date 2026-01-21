@@ -136,7 +136,7 @@ export default function DashboardPage() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Inventory Dashboard</h1>
+                    <h1 className="text-3xl mt-5 font-bold text-foreground">Inventory Dashboard</h1>
                     <p className="text-muted mt-1">Manage your inventory items</p>
                 </div>
                 <button

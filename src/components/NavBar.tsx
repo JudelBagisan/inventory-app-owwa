@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
+import Image from 'next/image';
 
 export function NavBar() {
     const pathname = usePathname();
@@ -52,10 +53,10 @@ export function NavBar() {
                     {/* Logo */}
                     <Link
                         href="/"
-                        className="flex items-center gap-2 font-bold text-xl text-foreground hover:text-primary transition-colors"
+                        className="flex items-center gap-2 font-bold text-lg text-foreground hover:text-primary transition-colors"
                     >
-                        <BoxIcon className="w-7 h-7 text-primary" />
-                        <span className="hidden sm:inline">Inventory</span>
+                        <Image src="/owwa.svg" alt="OWWA Logo" width={32} height={32} className="w-8 h-8" />
+                        <span className="hidden sm:inline">OWWA RXI INVENTORY</span>
                     </Link>
 
                     {/* Desktop Navigation */}

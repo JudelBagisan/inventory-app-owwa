@@ -43,7 +43,7 @@ export default function RootLayout({
             </main>
             <footer className="py-4 text-center text-sm text-muted border-t border-border no-print">
               <div className="container mx-auto">
-                © {new Date().getFullYear()} Inventory Management System
+                © 2026 OWWA RXI INVENTORY
               </div>
             </footer>
           </div>

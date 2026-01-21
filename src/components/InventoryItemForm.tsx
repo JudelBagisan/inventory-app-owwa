@@ -50,6 +50,7 @@ export function InventoryItemForm({
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [imagePreview, setImagePreview] = useState<string>(item?.image_url || '');
+    const [showImageModal, setShowImageModal] = useState(false);
 
     const supabase = createClient();
 
@@ -173,22 +174,30 @@ export function InventoryItemForm({
                         <label className="block text-sm font-medium text-foreground mb-2">
                             Item Image
                         </label>
-                        <div className="flex items-start gap-4">
+                        <div className="flex flex-col sm:flex-row items-start gap-4">
                             {(imagePreview || formData.image_url) && (
-                                <div className="w-32 h-32 rounded-lg border border-border overflow-hidden bg-surface-hover flex-shrink-0">
+                                <div className="relative w-full sm:w-32 h-32 rounded-lg border border-border overflow-hidden bg-surface-hover flex-shrink-0 group">
                                     <img
                                         src={imagePreview || formData.image_url}
                                         alt="Item preview"
                                         className="w-full h-full object-cover"
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowImageModal(true)}
+                                        className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="View full size"
+                                    >
+                                        <ExpandIcon className="w-8 h-8 text-white" />
+                                    </button>
                                 </div>
                             )}
                             {isEditable && (
-                                <div className="flex-1">
+                                <div className="flex-1 w-full">
                                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-surface-hover transition-colors">
                                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                             <UploadIcon className="w-10 h-10 text-muted mb-2" />
-                                            <p className="text-sm text-muted">
+                                            <p className="text-sm text-muted text-center px-2">
                                                 <span className="font-medium text-primary">Click to upload</span> or drag and drop
                                             </p>
                                             <p className="text-xs text-muted mt-1">PNG, JPG up to 5MB</p>
@@ -609,6 +618,29 @@ export function InventoryItemForm({
                 onConfirm={handleDelete}
                 onCancel={() => setShowDeleteModal(false)}
             />
+
+            {/* Full-Screen Image Modal */}
+            {showImageModal && (imagePreview || formData.image_url) && (
+                <div 
+                    className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 animate-in fade-in duration-200"
+                    onClick={() => setShowImageModal(false)}
+                >
+                    <button
+                        onClick={() => setShowImageModal(false)}
+                        className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+                        aria-label="Close"
+                    >
+                        <CloseIcon className="w-6 h-6" />
+                    </button>
+                    <div className="max-w-7xl max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
+                        <img
+                            src={imagePreview || formData.image_url}
+                            alt="Full size"
+                            className="w-full h-full object-contain rounded-lg"
+                        />
+                    </div>
+                </div>
+            )}
         </>
     );
 }
@@ -663,6 +695,22 @@ function QRIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+        </svg>
+    );
+}
+
+function ExpandIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+        </svg>
+    );
+}
+
+function CloseIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
     );
 }
