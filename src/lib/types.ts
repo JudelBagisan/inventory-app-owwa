@@ -84,6 +84,13 @@ export interface Unit {
     created_at: string;
 }
 
+export interface Location {
+    id: string;
+    name: string;
+    created_at: string;
+    deleted_at: string | null;
+}
+
 export interface User {
     id: string;
     email: string;

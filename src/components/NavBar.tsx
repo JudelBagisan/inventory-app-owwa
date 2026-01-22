@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -10,6 +10,7 @@ import Image from 'next/image';
 
 export function NavBar() {
     const pathname = usePathname();
+    const router = useRouter();
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const [user, setUser] = useState<User | null>(null);
@@ -35,6 +36,7 @@ export function NavBar() {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         setMenuOpen(false);
+        router.push('/'); // Redirect to homepage after logout
     };
 
     const toggleTheme = () => {
@@ -42,7 +44,7 @@ export function NavBar() {
     };
 
     const navLinks = [
-        { href: '/scanner', label: 'Scanner', icon: ScannerIcon },
+        { href: '/', label: 'Scanner', icon: ScannerIcon },
         { href: '/dashboard', label: 'Dashboard', icon: DashboardIcon, requiresAuth: true },
     ];
 
@@ -56,7 +58,7 @@ export function NavBar() {
                         className="flex items-center gap-2 font-bold text-lg text-foreground hover:text-primary transition-colors"
                     >
                         <Image src="/DMW1.png" alt="OWWA Logo" width={32} height={32} className="w-8 h-8" />
-                        <span className="hidden text-sm sm:inline">OWWA RXI INVENTORY</span>
+                        <span className="hidden sm:inline">OWWA RXI INVENTORY</span>
                     </Link>
 
                     {/* Desktop Navigation */}
@@ -69,8 +71,8 @@ export function NavBar() {
                                     key={link.href}
                                     href={link.href}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                                        ? 'bg-primary text-white shadow-md'
-                                        : 'text-muted hover:text-foreground hover:bg-surface-hover'
+                                            ? 'bg-primary text-white shadow-md'
+                                            : 'text-muted hover:text-foreground hover:bg-surface-hover'
                                         }`}
                                 >
                                     <link.icon className="w-4 h-4" />
@@ -144,8 +146,8 @@ export function NavBar() {
                                         href={link.href}
                                         onClick={() => setMenuOpen(false)}
                                         className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                                            ? 'bg-primary text-white'
-                                            : 'text-muted hover:text-foreground hover:bg-surface-hover'
+                                                ? 'bg-primary text-white'
+                                                : 'text-muted hover:text-foreground hover:bg-surface-hover'
                                             }`}
                                     >
                                         <link.icon className="w-5 h-5" />

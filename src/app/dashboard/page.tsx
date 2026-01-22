@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Item, ItemFormData, ITEM_STATUSES, ItemStatus, LOCATION_PRESETS, ITEM_CATEGORIES, ItemCategory } from '@/lib/types';
+import { Item, ItemFormData, ITEM_STATUSES, ItemStatus, LOCATION_PRESETS, ITEM_CATEGORIES, ItemCategory, Location } from '@/lib/types';
 import { StatusBadge } from '@/components/StatusBadge';
 import { InventoryItemForm } from '@/components/InventoryItemForm';
 import { BulkStickerGenerator } from '@/components/BulkStickerGenerator';
+import { LocationManager } from '@/components/LocationManager';
 import { createClient } from '@/lib/supabase/client';
 import ExcelJS from 'exceljs';
 
@@ -12,13 +13,16 @@ type SortOption = 'date-asc' | 'date-desc' | 'name-asc';
 
 export default function DashboardPage() {
     const [items, setItems] = useState<Item[]>([]);
+    const [locations, setLocations] = useState<Location[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<ItemCategory | 'All'>('All');
     const [locationFilter, setLocationFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState<ItemStatus | 'All'>('All');
     const [sortOption, setSortOption] = useState<SortOption>('date-desc');
     const [isLoading, setIsLoading] = useState(true);
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
     const [showAddForm, setShowAddForm] = useState(false);
+    const [showLocationManager, setShowLocationManager] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(20);
@@ -29,13 +33,14 @@ export default function DashboardPage() {
 
     useEffect(() => {
         fetchItems();
+        fetchLocations();
     }, []);
 
     // Filtered and sorted items using useMemo
     const filteredItems = useMemo(() => {
         let filtered = items;
 
-        // Apply search filter
+        // Apply search filter (including end user names)
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             filtered = filtered.filter(
@@ -59,13 +64,26 @@ export default function DashboardPage() {
             filtered = filtered.filter((item) => item.location === locationFilter);
         }
 
+        // Apply status filter
+        if (statusFilter !== 'All') {
+            filtered = filtered.filter((item) => item.status === statusFilter);
+        }
+
         // Apply sorting
         filtered = [...filtered].sort((a, b) => {
             switch (sortOption) {
                 case 'date-asc':
-                    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                    // Put items without acquisition_date at the end
+                    if (!a.acquisition_date && !b.acquisition_date) return 0;
+                    if (!a.acquisition_date) return 1;
+                    if (!b.acquisition_date) return -1;
+                    return new Date(a.acquisition_date).getTime() - new Date(b.acquisition_date).getTime();
                 case 'date-desc':
-                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    // Put items without acquisition_date at the end
+                    if (!a.acquisition_date && !b.acquisition_date) return 0;
+                    if (!a.acquisition_date) return 1;
+                    if (!b.acquisition_date) return -1;
+                    return new Date(b.acquisition_date).getTime() - new Date(a.acquisition_date).getTime();
                 case 'name-asc':
                     return a.name.localeCompare(b.name);
                 default:
@@ -74,7 +92,7 @@ export default function DashboardPage() {
         });
 
         return filtered;
-    }, [items, searchQuery, categoryFilter, locationFilter, sortOption]);
+    }, [items, searchQuery, categoryFilter, locationFilter, statusFilter, sortOption]);
 
     // Paginated items
     const paginatedItems = useMemo(() => {
@@ -89,7 +107,7 @@ export default function DashboardPage() {
     // Reset to page 1 when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, categoryFilter, locationFilter, sortOption]);
+    }, [searchQuery, categoryFilter, locationFilter, statusFilter, sortOption]);
 
     const fetchItems = async () => {
         try {
@@ -107,6 +125,20 @@ export default function DashboardPage() {
             setError(err instanceof Error ? err.message : 'Failed to fetch items');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const fetchLocations = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('locations')
+                .select('*')
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+            setLocations(data || []);
+        } catch (err) {
+            console.error('Failed to fetch locations:', err);
         }
     };
 
@@ -272,7 +304,11 @@ export default function DashboardPage() {
 
         // Generate filename with date and filter info
         const date = new Date().toISOString().split('T')[0];
-        const filterInfo = categoryFilter !== 'All' ? `_${categoryFilter.replace(/\s+/g, '-')}` : '';
+        const filterParts = [];
+        if (categoryFilter !== 'All') filterParts.push(categoryFilter.replace(/\s+/g, '-'));
+        if (statusFilter !== 'All') filterParts.push(statusFilter.replace(/\s+/g, '-'));
+        if (locationFilter) filterParts.push(locationFilter.replace(/\s+/g, '-'));
+        const filterInfo = filterParts.length > 0 ? `_${filterParts.join('_')}` : '';
         const filename = `inventory_export${filterInfo}_${date}.xlsx`;
 
         // Download
@@ -308,13 +344,22 @@ export default function DashboardPage() {
                     <h1 className="text-3xl mt-5 font-bold text-foreground">Inventory Dashboard</h1>
                     <p className="text-muted mt-1">Manage your inventory items</p>
                 </div>
-                <button
-                    onClick={() => setShowAddForm(true)}
-                    className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover transition-all shadow-md hover:shadow-lg"
-                >
-                    <PlusIcon className="w-5 h-5" />
-                    Add New Item
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setShowLocationManager(true)}
+                        className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"
+                    >
+                        <LocationIcon className="w-5 h-5" />
+                        Manage Locations
+                    </button>
+                    <button
+                        onClick={() => setShowAddForm(true)}
+                        className="flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover transition-all shadow-md hover:shadow-lg"
+                    >
+                        <PlusIcon className="w-5 h-5" />
+                        Add New Item
+                    </button>
+                </div>
             </div>
 
             {/* Category Stats Cards */}
@@ -380,7 +425,7 @@ export default function DashboardPage() {
 
             {/* Toolbar: Filters, Sort, Export */}
             <div className="bg-surface rounded-xl border border-border p-4 mb-6">
-                <div className="flex flex-col lg:flex-row gap-4">
+                <div className="flex flex-col gap-4">
                     {/* Search */}
                     <div className="flex-1 relative">
                         <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
@@ -388,23 +433,37 @@ export default function DashboardPage() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search by name, serial number, property number..."
+                            placeholder="Search by name, serial number, property number, end user..."
                             className="w-full pl-12 pr-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                         />
                     </div>
 
                     {/* Filters Row */}
-                    <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex flex-col lg:flex-row gap-3">
                         {/* Location Filter */}
                         <select
                             value={locationFilter}
                             onChange={(e) => setLocationFilter(e.target.value)}
                             className="px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                         >
-                            <option value="">All Locations ({items.length})</option>
-                            {LOCATION_PRESETS.map((location) => (
-                                <option key={location} value={location}>
-                                    {location}
+                            <option value="">All Locations</option>
+                            {locations.filter(loc => !loc.deleted_at).map((location) => (
+                                <option key={location.id} value={location.name}>
+                                    {location.name}
+                                </option>
+                            ))}
+                        </select>
+
+                        {/* Status Filter */}
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value as ItemStatus | 'All')}
+                            className="px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        >
+                            <option value="All">All Status</option>
+                            {ITEM_STATUSES.map((status) => (
+                                <option key={status} value={status}>
+                                    {status}
                                 </option>
                             ))}
                         </select>
@@ -415,8 +474,8 @@ export default function DashboardPage() {
                             onChange={(e) => setSortOption(e.target.value as SortOption)}
                             className="px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                         >
-                            <option value="date-desc">Date Added (Newest)</option>
-                            <option value="date-asc">Date Added (Oldest)</option>
+                            <option value="date-desc">Acquisition Date (Newest)</option>
+                            <option value="date-asc">Acquisition Date (Oldest)</option>
                             <option value="name-asc">Name (A-Z)</option>
                         </select>
 
@@ -424,7 +483,7 @@ export default function DashboardPage() {
                         <button
                             onClick={handleExportToExcel}
                             disabled={filteredItems.length === 0}
-                            className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                            className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                         >
                             <ExportIcon className="w-5 h-5" />
                             Export to Excel
@@ -433,7 +492,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Active Filters Display */}
-                {(categoryFilter !== 'All' || locationFilter || searchQuery) && (
+                {(categoryFilter !== 'All' || locationFilter || statusFilter !== 'All' || searchQuery) && (
                     <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border">
                         <span className="text-sm text-muted">Active filters:</span>
                         {categoryFilter !== 'All' && (
@@ -448,6 +507,12 @@ export default function DashboardPage() {
                                 <button onClick={() => setLocationFilter('')} className="hover:text-primary-hover">×</button>
                             </span>
                         )}
+                        {statusFilter !== 'All' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-sm">
+                                Status: {statusFilter}
+                                <button onClick={() => setStatusFilter('All')} className="hover:text-primary-hover">×</button>
+                            </span>
+                        )}
                         {searchQuery && (
                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-sm">
                                 Search: {searchQuery}
@@ -458,6 +523,7 @@ export default function DashboardPage() {
                             onClick={() => {
                                 setCategoryFilter('All');
                                 setLocationFilter('');
+                                setStatusFilter('All');
                                 setSearchQuery('');
                             }}
                             className="text-sm text-muted hover:text-foreground underline"
@@ -777,6 +843,16 @@ export default function DashboardPage() {
                     onClose={() => {
                         setBulkMode(null);
                         setSelectedItems(new Set());
+                    }}
+                />
+            )}
+
+            {/* Location Manager Modal */}
+            {showLocationManager && (
+                <LocationManager
+                    onClose={() => {
+                        setShowLocationManager(false);
+                        fetchLocations(); // Refresh locations after closing
                     }}
                 />
             )}

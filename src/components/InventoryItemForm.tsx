@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Item, ItemFormData, ItemStatus, ITEM_STATUSES, Unit, ItemCategory, ITEM_CATEGORIES, LOCATION_PRESETS } from '@/lib/types';
+import { Item, ItemFormData, ItemStatus, ITEM_STATUSES, Unit, ItemCategory, ITEM_CATEGORIES, Location } from '@/lib/types';
 import { StatusBadge } from './StatusBadge';
 import { PropertySticker } from './PropertySticker';
 import { ConfirmModal } from './ConfirmModal';
@@ -43,6 +43,7 @@ export function InventoryItemForm({
         unit: item?.unit || '',
     });
     const [units, setUnits] = useState<Unit[]>([]);
+    const [locations, setLocations] = useState<Location[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -56,6 +57,7 @@ export function InventoryItemForm({
 
     useEffect(() => {
         fetchUnits();
+        fetchLocations();
     }, []);
 
     const fetchUnits = async () => {
@@ -69,6 +71,21 @@ export function InventoryItemForm({
             setUnits(data || []);
         } catch (err) {
             console.error('Error fetching units:', err);
+        }
+    };
+
+    const fetchLocations = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('locations')
+                .select('*')
+                .is('deleted_at', null)
+                .order('name');
+
+            if (error) throw error;
+            setLocations(data || []);
+        } catch (err) {
+            console.error('Error fetching locations:', err);
         }
     };
 
@@ -378,8 +395,8 @@ export function InventoryItemForm({
                                         placeholder="Select or type a location"
                                     />
                                     <datalist id="location-presets">
-                                        {LOCATION_PRESETS.map((location) => (
-                                            <option key={location} value={location} />
+                                        {locations.map((location) => (
+                                            <option key={location.id} value={location.name} />
                                         ))}
                                     </datalist>
                                 </>
