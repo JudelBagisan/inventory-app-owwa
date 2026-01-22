@@ -71,7 +71,7 @@ function LoginForm() {
                         Regional Welfare Office XI - Davao City
                     </p>
                     <h2 className="text-primary font-semibold mt-3">
-                        Employee Information System
+                        Inventory Management System
                     </h2>
                 </div>
 
