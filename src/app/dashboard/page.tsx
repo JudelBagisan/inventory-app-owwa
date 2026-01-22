@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Item, ItemFormData, ITEM_STATUSES, ItemStatus, LOCATION_PRESETS, ITEM_CATEGORIES, ItemCategory } from '@/lib/types';
 import { StatusBadge } from '@/components/StatusBadge';
 import { InventoryItemForm } from '@/components/InventoryItemForm';
+import { BulkStickerGenerator } from '@/components/BulkStickerGenerator';
 import { createClient } from '@/lib/supabase/client';
 import ExcelJS from 'exceljs';
 
@@ -21,6 +22,8 @@ export default function DashboardPage() {
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(20);
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+    const [bulkMode, setBulkMode] = useState<'download' | 'print' | null>(null);
 
     const supabase = createClient();
 
@@ -150,6 +153,37 @@ export default function DashboardPage() {
 
     const getCategoryCount = (category: ItemCategory) => {
         return items.filter((item) => item.category === category).length;
+    };
+
+    // Selection handlers
+    const handleSelectAll = () => {
+        if (selectedItems.size === paginatedItems.length) {
+            setSelectedItems(new Set());
+        } else {
+            setSelectedItems(new Set(paginatedItems.map(item => item.id)));
+        }
+    };
+
+    const handleSelectItem = (itemId: string) => {
+        const newSelected = new Set(selectedItems);
+        if (newSelected.has(itemId)) {
+            newSelected.delete(itemId);
+        } else {
+            newSelected.add(itemId);
+        }
+        setSelectedItems(newSelected);
+    };
+
+    const handleSelectAllFiltered = () => {
+        setSelectedItems(new Set(filteredItems.map(item => item.id)));
+    };
+
+    const handleClearSelection = () => {
+        setSelectedItems(new Set());
+    };
+
+    const getSelectedItems = (): Item[] => {
+        return items.filter(item => selectedItems.has(item.id));
     };
 
     const handleExportToExcel = async () => {
@@ -434,6 +468,47 @@ export default function DashboardPage() {
                 )}
             </div>
 
+            {/* Bulk Action Toolbar */}
+            {selectedItems.size > 0 && (
+                <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 mb-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <span className="text-primary font-medium">
+                                {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected
+                            </span>
+                            <button
+                                onClick={handleSelectAllFiltered}
+                                className="text-sm text-primary hover:underline"
+                            >
+                                Select all {filteredItems.length}
+                            </button>
+                            <button
+                                onClick={handleClearSelection}
+                                className="text-sm text-muted hover:text-foreground"
+                            >
+                                Clear selection
+                            </button>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setBulkMode('download')}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors shadow-md"
+                            >
+                                <DownloadIcon className="w-4 h-4" />
+                                Download Stickers
+                            </button>
+                            <button
+                                onClick={() => setBulkMode('print')}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover transition-colors shadow-md"
+                            >
+                                <PrintIcon className="w-4 h-4" />
+                                Print Stickers
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Results count */}
             <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-muted">
@@ -476,6 +551,14 @@ export default function DashboardPage() {
                         <table className="w-full">
                             <thead className="bg-surface-hover border-b border-border">
                                 <tr>
+                                    <th className="px-3 py-3 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={paginatedItems.length > 0 && selectedItems.size === paginatedItems.length}
+                                            onChange={handleSelectAll}
+                                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                                        />
+                                    </th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Image</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Item Name</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Category</th>
@@ -488,7 +571,15 @@ export default function DashboardPage() {
                             </thead>
                             <tbody className="divide-y divide-border">
                                 {paginatedItems.map((item) => (
-                                    <tr key={item.id} className="hover:bg-surface-hover transition-colors">
+                                    <tr key={item.id} className={`hover:bg-surface-hover transition-colors ${selectedItems.has(item.id) ? 'bg-primary/5' : ''}`}>
+                                        <td className="px-3 py-3 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedItems.has(item.id)}
+                                                onChange={() => handleSelectItem(item.id)}
+                                                className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                                            />
+                                        </td>
                                         <td className="px-3 py-3">
                                             {item.image_url ? (
                                                 <img
@@ -542,10 +633,15 @@ export default function DashboardPage() {
                         {paginatedItems.map((item) => (
                             <div
                                 key={item.id}
-                                className="p-4 hover:bg-surface-hover transition-colors cursor-pointer"
-                                onClick={() => setSelectedItem(item)}
+                                className={`p-4 hover:bg-surface-hover transition-colors cursor-pointer ${selectedItems.has(item.id) ? 'bg-primary/5' : ''}`}
                             >
                                 <div className="flex items-start gap-4">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedItems.has(item.id)}
+                                        onChange={() => handleSelectItem(item.id)}
+                                        className="w-5 h-5 mt-1 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                                    />
                                     {item.image_url ? (
                                         <img
                                             src={item.image_url}
@@ -576,7 +672,12 @@ export default function DashboardPage() {
                                             </div>
                                         </div>
                                     </div>
-                                    <ChevronRightIcon className="w-5 h-5 text-muted flex-shrink-0" />
+                                    <button
+                                        onClick={() => setSelectedItem(item)}
+                                        className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary hover:text-white transition-all flex-shrink-0"
+                                    >
+                                        View
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -666,6 +767,18 @@ export default function DashboardPage() {
                         />
                     </div>
                 </div>
+            )}
+
+            {/* Bulk Sticker Generator Modal */}
+            {bulkMode && (
+                <BulkStickerGenerator
+                    items={getSelectedItems()}
+                    mode={bulkMode}
+                    onClose={() => {
+                        setBulkMode(null);
+                        setSelectedItems(new Set());
+                    }}
+                />
             )}
         </div>
     );
@@ -770,3 +883,20 @@ function ExportIcon({ className }: { className?: string }) {
         </svg>
     );
 }
+
+function DownloadIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+    );
+}
+
+function PrintIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+    );
+}
+

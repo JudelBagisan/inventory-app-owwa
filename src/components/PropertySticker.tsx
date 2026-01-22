@@ -231,7 +231,7 @@ export function PropertySticker({ item, onClose }: PropertyStickerProps) {
                         <div class="qr-container">
                             <img src="${qrDataUrl}" alt="QR Code" class="qr-code" />
                             <div class="qr-logo">
-                                <img src="/owwa.svg" alt="OWWA Logo" style="width: 100%; height: 100%; object-fit: contain;" />
+                                <img src="/DMW1.png" alt="OWWA Logo" style="width: 100%; height: 100%; object-fit: contain;" />
                             </div>
                         </div>
                         <div class="property-no-section">
@@ -372,7 +372,7 @@ export function PropertySticker({ item, onClose }: PropertyStickerProps) {
                         <div className="flex items-center justify-center p-4 relative">
                             <img src={qrDataUrl} alt="QR Code" className="w-32 h-32" />
                             <div className="absolute bg-white rounded-full w-12 h-12 flex items-center justify-center shadow-md p-1">
-                                <img src="/owwa.svg" alt="OWWA Logo" className="w-full h-full object-contain" />
+                                <img src="/DMW1.png" alt="OWWA Logo" className="w-full h-full object-contain" />
                             </div>
                         </div>
                         <div className="border-t-2 border-gray-300 p-2 text-center">

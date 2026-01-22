@@ -42,7 +42,7 @@ export function NavBar() {
     };
 
     const navLinks = [
-        { href: '/', label: 'Scanner', icon: ScannerIcon },
+        { href: '/scanner', label: 'Scanner', icon: ScannerIcon },
         { href: '/dashboard', label: 'Dashboard', icon: DashboardIcon, requiresAuth: true },
     ];
 
@@ -55,8 +55,8 @@ export function NavBar() {
                         href="/"
                         className="flex items-center gap-2 font-bold text-lg text-foreground hover:text-primary transition-colors"
                     >
-                        <Image src="/owwa.svg" alt="OWWA Logo" width={32} height={32} className="w-8 h-8" />
-                        <span className="hidden sm:inline">OWWA RXI INVENTORY</span>
+                        <Image src="/DMW1.png" alt="OWWA Logo" width={32} height={32} className="w-8 h-8" />
+                        <span className="hidden text-sm sm:inline">OWWA RXI INVENTORY</span>
                     </Link>
 
                     {/* Desktop Navigation */}
@@ -69,8 +69,8 @@ export function NavBar() {
                                     key={link.href}
                                     href={link.href}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                                            ? 'bg-primary text-white shadow-md'
-                                            : 'text-muted hover:text-foreground hover:bg-surface-hover'
+                                        ? 'bg-primary text-white shadow-md'
+                                        : 'text-muted hover:text-foreground hover:bg-surface-hover'
                                         }`}
                                 >
                                     <link.icon className="w-4 h-4" />
@@ -144,8 +144,8 @@ export function NavBar() {
                                         href={link.href}
                                         onClick={() => setMenuOpen(false)}
                                         className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                                                ? 'bg-primary text-white'
-                                                : 'text-muted hover:text-foreground hover:bg-surface-hover'
+                                            ? 'bg-primary text-white'
+                                            : 'text-muted hover:text-foreground hover:bg-surface-hover'
                                             }`}
                                     >
                                         <link.icon className="w-5 h-5" />
