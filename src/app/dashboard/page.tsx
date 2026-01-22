@@ -365,7 +365,7 @@ export default function DashboardPage() {
             {/* Category Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div
-                    className={`p-5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg cursor-pointer transition-all transform hover:scale-[1.02] hover:shadow-xl ${categoryFilter === 'Furniture and Fixtures' ? 'ring-4 ring-white/50' : ''}`}
+                    className={`p-5 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg cursor-pointer transition-all transform hover:scale-[1.02] hover:shadow-xl ${categoryFilter === 'Furniture and Fixtures' ? 'ring-4 ring-white/50' : ''}`}
                     onClick={() => setCategoryFilter(categoryFilter === 'Furniture and Fixtures' ? 'All' : 'Furniture and Fixtures')}
                 >
                     <div className="flex items-center justify-between">

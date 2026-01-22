@@ -20,15 +20,18 @@ export interface Item {
     updated_at: string;
 }
 
-export type ItemStatus = 'Brand New' | 'Good' | 'Usable' | 'Repair Needed' | 'Unusable';
+export type ItemStatus = 'Brand New' | 'Good' | 'Serviceable' | 'Unserviceable' | 'Repair Needed' | 'Donated' | 'For Disposal' | 'Disposable';
 export type ItemCategory = 'Furniture and Fixtures' | 'ICT Equipments' | 'Other Equipments';
 
 export const ITEM_STATUSES: ItemStatus[] = [
     'Brand New',
     'Good',
-    'Usable',
+    'Serviceable',
+    'Unserviceable',
     'Repair Needed',
-    'Unusable',
+    'Donated',
+    'For Disposal',
+    'Disposable',
 ];
 
 export const ITEM_CATEGORIES: ItemCategory[] = [

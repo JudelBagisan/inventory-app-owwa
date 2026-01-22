@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Item, ItemFormData, ItemStatus, ITEM_STATUSES, Unit, ItemCategory, ITEM_CATEGORIES, Location } from '@/lib/types';
 import { StatusBadge } from './StatusBadge';
 import { PropertySticker } from './PropertySticker';
@@ -52,6 +52,10 @@ export function InventoryItemForm({
     const [error, setError] = useState<string | null>(null);
     const [imagePreview, setImagePreview] = useState<string>(item?.image_url || '');
     const [showImageModal, setShowImageModal] = useState(false);
+    const [showCamera, setShowCamera] = useState(false);
+    const [stream, setStream] = useState<MediaStream | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const supabase = createClient();
 
@@ -157,6 +161,97 @@ export function InventoryItemForm({
         }
     };
 
+    const startCamera = async () => {
+        try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                }
+            });
+            setStream(mediaStream);
+            setShowCamera(true);
+        } catch (err) {
+            console.error('Error accessing camera:', err);
+            setError('Failed to access camera. Please check permissions.');
+        }
+    };
+
+    const stopCamera = () => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            setStream(null);
+        }
+        setShowCamera(false);
+    };
+
+    const captureImage = async () => {
+        if (!videoRef.current || !canvasRef.current) return;
+
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const context = canvas.getContext('2d');
+        if (!context) return;
+
+        context.drawImage(video, 0, 0);
+
+        canvas.toBlob(async (blob) => {
+            if (!blob) return;
+
+            // Create local preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(blob);
+
+            // Upload to Supabase Storage
+            try {
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+                const filePath = `item-images/${fileName}`;
+
+                const file = new File([blob], fileName, { type: 'image/jpeg' });
+
+                const { error: uploadError } = await supabase.storage
+                    .from('inventory')
+                    .upload(filePath, file);
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('inventory')
+                    .getPublicUrl(filePath);
+
+                handleChange('image_url', publicUrl);
+                stopCamera();
+            } catch (err) {
+                console.error('Error uploading image:', err);
+                setError('Failed to upload captured image. Please try again.');
+            }
+        }, 'image/jpeg', 0.9);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [stream]);
+
+    useEffect(() => {
+        if (showCamera && stream && videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(err => {
+                console.error('Error playing video:', err);
+            });
+        }
+    }, [showCamera, stream]);
+
     return (
         <>
             <div className="bg-surface rounded-2xl shadow-xl border border-border overflow-hidden">
@@ -210,7 +305,7 @@ export function InventoryItemForm({
                                 </div>
                             )}
                             {isEditable && (
-                                <div className="flex-1 w-full">
+                                <div className="flex-1 w-full space-y-3">
                                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-surface-hover transition-colors">
                                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                             <UploadIcon className="w-10 h-10 text-muted mb-2" />
@@ -226,6 +321,14 @@ export function InventoryItemForm({
                                             onChange={handleImageUpload}
                                         />
                                     </label>
+                                    <button
+                                        type="button"
+                                        onClick={startCamera}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-border text-foreground font-medium hover:border-primary hover:bg-surface-hover transition-colors"
+                                    >
+                                        <CameraIcon className="w-5 h-5" />
+                                        Capture with Camera
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -514,7 +617,7 @@ export function InventoryItemForm({
                             Status
                         </label>
                         {isEditable ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 {ITEM_STATUSES.map((status) => (
                                     <button
                                         key={status}
@@ -666,6 +769,60 @@ export function InventoryItemForm({
                     </div>
                 </div>
             )}
+
+            {/* Camera Modal */}
+            {showCamera && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/95 animate-in fade-in duration-200">
+                    <div className="w-full max-w-2xl bg-surface rounded-2xl shadow-xl border border-border overflow-hidden">
+                        {/* Header */}
+                        <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-primary/5 to-transparent flex items-center justify-between">
+                            <h3 className="text-xl font-bold text-foreground">Capture Image</h3>
+                            <button
+                                onClick={stopCamera}
+                                className="p-2 rounded-lg hover:bg-surface-hover transition-colors"
+                                aria-label="Close camera"
+                            >
+                                <CloseIcon className="w-6 h-6 text-foreground" />
+                            </button>
+                        </div>
+
+                        {/* Camera View */}
+                        <div className="p-6">
+                            <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+
+                            {/* Camera Controls */}
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    type="button"
+                                    onClick={captureImage}
+                                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover transition-all shadow-md hover:shadow-lg"
+                                >
+                                    <CameraIcon className="w-5 h-5" />
+                                    Capture Photo
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={stopCamera}
+                                    className="px-6 py-3 rounded-lg border border-border text-muted font-medium hover:text-foreground hover:bg-surface-hover transition-all"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Hidden canvas for capture */}
+                    <canvas ref={canvasRef} className="hidden" />
+                </div>
+            )}
         </>
     );
 }
@@ -684,9 +841,12 @@ function getStatusButtonClass(status: ItemStatus, isSelected: boolean): string {
     const classes: Record<ItemStatus, string> = {
         'Brand New': 'border-emerald-500 bg-emerald-500/10 text-emerald-600',
         'Good': 'border-blue-500 bg-blue-500/10 text-blue-600',
-        'Usable': 'border-amber-500 bg-amber-500/10 text-amber-600',
+        'Serviceable': 'border-teal-500 bg-teal-500/10 text-teal-600',
+        'Unserviceable': 'border-red-500 bg-red-500/10 text-red-600',
         'Repair Needed': 'border-orange-500 bg-orange-500/10 text-orange-600',
-        'Unusable': 'border-red-500 bg-red-500/10 text-red-600',
+        'Donated': 'border-purple-500 bg-purple-500/10 text-purple-600',
+        'For Disposal': 'border-gray-500 bg-gray-500/10 text-gray-600',
+        'Disposable': 'border-slate-500 bg-slate-500/10 text-slate-600',
     };
 
     return classes[status];
@@ -745,6 +905,15 @@ function UploadIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+    );
+}
+
+function CameraIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
     );
 }
