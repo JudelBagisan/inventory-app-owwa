@@ -44,7 +44,7 @@ export function NavBar() {
     };
 
     const navLinks = [
-        { href: '/', label: 'Scanner', icon: ScannerIcon },
+        { href: '/scanner', label: 'Scanner', icon: ScannerIcon },
         { href: '/dashboard', label: 'Dashboard', icon: DashboardIcon, requiresAuth: true },
     ];
 
@@ -58,7 +58,7 @@ export function NavBar() {
                         className="flex items-center gap-2 font-bold text-lg text-foreground hover:text-primary transition-colors"
                     >
                         <Image src="/DMW1.png" alt="OWWA Logo" width={32} height={32} className="w-8 h-8" />
-                        <span className="hidden sm:inline">OWWA RXI INVENTORY</span>
+                        <span className="hidden text-sm font-semibold sm:inline">OWWA RWOXI INVENTORY</span>
                     </Link>
 
                     {/* Desktop Navigation */}

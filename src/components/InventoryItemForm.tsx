@@ -760,11 +760,11 @@ export function InventoryItemForm({
                     >
                         <CloseIcon className="w-6 h-6" />
                     </button>
-                    <div className="max-w-7xl max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
+                    <div className="relative w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                         <img
                             src={imagePreview || formData.image_url}
                             alt="Full size"
-                            className="w-full h-full object-contain rounded-lg"
+                            className="max-w-full max-h-full object-contain rounded-lg"
                         />
                     </div>
                 </div>

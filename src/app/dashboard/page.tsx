@@ -863,7 +863,7 @@ export default function DashboardPage() {
 // Category Badge Component
 function CategoryBadge({ category }: { category: ItemCategory }) {
     const config: Record<ItemCategory, { bg: string; text: string }> = {
-        'Furniture and Fixtures': { bg: 'bg-red-600 dark:bg-red-700', text: 'text-white' },
+        'Furniture and Fixtures': { bg: 'bg-orange-600 dark:bg-orange-500', text: 'text-white' },
         'ICT Equipments': { bg: 'bg-blue-600 dark:bg-blue-700', text: 'text-white' },
         'Other Equipments': { bg: 'bg-teal-600 dark:bg-teal-700', text: 'text-white' },
     };
