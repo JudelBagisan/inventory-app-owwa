@@ -7,6 +7,8 @@ import { InventoryItemForm } from '@/components/InventoryItemForm';
 import { BulkStickerGenerator } from '@/components/BulkStickerGenerator';
 import { LocationManager } from '@/components/LocationManager';
 import { AddToCollectionModal } from '@/components/AddToCollectionModal';
+import { ConfirmModal } from '@/components/ConfirmModal';
+import { PasswordConfirmModal } from '@/components/PasswordConfirmModal';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/ToastProvider';
 import ExcelJS from 'exceljs';
@@ -32,6 +34,8 @@ export default function DashboardPage() {
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [bulkMode, setBulkMode] = useState<'download' | 'print' | null>(null);
     const [showAddToCollectionModal, setShowAddToCollectionModal] = useState(false);
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+    const [showBulkDeletePassword, setShowBulkDeletePassword] = useState(false);
 
     const supabase = createClient();
 
@@ -189,6 +193,49 @@ export default function DashboardPage() {
         } catch (err) {
             showToast(err instanceof Error ? err.message : 'Failed to delete item', 'error');
             throw err;
+        }
+    };
+
+    const handleBulkDeleteClick = () => {
+        if (selectedItems.size === 0) return;
+        setShowBulkDeleteConfirm(true);
+    };
+
+    const handleBulkDeleteConfirmed = () => {
+        setShowBulkDeleteConfirm(false);
+        setShowBulkDeletePassword(true);
+    };
+
+    const handleBulkDeleteWithPassword = async (password: string) => {
+        try {
+            // Verify password with Supabase auth
+            const { error: authError } = await supabase.auth.signInWithPassword({
+                email: (await supabase.auth.getUser()).data.user?.email || '',
+                password: password,
+            });
+
+            if (authError) {
+                showToast('Invalid password. Deletion cancelled.', 'error');
+                setShowBulkDeletePassword(false);
+                return;
+            }
+
+            // Password is correct, proceed with deletion
+            const itemsToDelete = Array.from(selectedItems);
+            const { error } = await supabase
+                .from('items')
+                .delete()
+                .in('id', itemsToDelete);
+
+            if (error) throw error;
+
+            showToast(`Successfully deleted ${itemsToDelete.length} item(s)`, 'success');
+            await fetchItems();
+            setSelectedItems(new Set());
+            setShowBulkDeletePassword(false);
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : 'Failed to delete items', 'error');
+            setShowBulkDeletePassword(false);
         }
     };
 
@@ -586,6 +633,13 @@ export default function DashboardPage() {
                                 <PrintIcon className="w-4 h-4" />
                                 Print Stickers
                             </button>
+                            <button
+                                onClick={handleBulkDeleteClick}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-danger text-white font-medium hover:bg-danger/90 transition-colors shadow-md"
+                            >
+                                <TrashIcon className="w-4 h-4" />
+                                Delete Selected
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -885,6 +939,29 @@ export default function DashboardPage() {
                     }}
                 />
             )}
+
+            {/* Bulk Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={showBulkDeleteConfirm}
+                title="Confirm Bulk Delete"
+                message={`Are you sure you want to delete ${selectedItems.size} selected item(s)? You will need to enter your password to confirm this action.`}
+                confirmText="Continue"
+                cancelText="Cancel"
+                variant="danger"
+                onConfirm={handleBulkDeleteConfirmed}
+                onCancel={() => setShowBulkDeleteConfirm(false)}
+            />
+
+            {/* Bulk Delete Password Modal */}
+            <PasswordConfirmModal
+                isOpen={showBulkDeletePassword}
+                title="Enter Password to Delete"
+                message={`You are about to permanently delete ${selectedItems.size} item(s). This action cannot be undone.`}
+                confirmText="Delete Items"
+                cancelText="Cancel"
+                onConfirm={handleBulkDeleteWithPassword}
+                onCancel={() => setShowBulkDeletePassword(false)}
+            />
         </div>
     );
 }
@@ -1009,6 +1086,14 @@ function PrintIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+    );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
         </svg>
     );
 }
