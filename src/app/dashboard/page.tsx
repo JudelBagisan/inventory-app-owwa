@@ -6,12 +6,15 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { InventoryItemForm } from '@/components/InventoryItemForm';
 import { BulkStickerGenerator } from '@/components/BulkStickerGenerator';
 import { LocationManager } from '@/components/LocationManager';
+import { AddToCollectionModal } from '@/components/AddToCollectionModal';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/ToastProvider';
 import ExcelJS from 'exceljs';
 
 type SortOption = 'date-asc' | 'date-desc' | 'name-asc';
 
 export default function DashboardPage() {
+    const { showToast } = useToast();
     const [items, setItems] = useState<Item[]>([]);
     const [locations, setLocations] = useState<Location[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -28,6 +31,7 @@ export default function DashboardPage() {
     const [itemsPerPage] = useState(20);
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [bulkMode, setBulkMode] = useState<'download' | 'print' | null>(null);
+    const [showAddToCollectionModal, setShowAddToCollectionModal] = useState(false);
 
     const supabase = createClient();
 
@@ -149,18 +153,21 @@ export default function DashboardPage() {
             if (isNew) {
                 const { error } = await supabase.from('items').insert([data]);
                 if (error) throw error;
+                showToast('Item created successfully', 'success');
             } else if (selectedItem) {
                 const { error } = await supabase
                     .from('items')
                     .update(data)
                     .eq('id', selectedItem.id);
                 if (error) throw error;
+                showToast('Item updated successfully', 'success');
             }
 
             await fetchItems();
             setSelectedItem(null);
             setShowAddForm(false);
         } catch (err) {
+            showToast(err instanceof Error ? err.message : 'Failed to save item', 'error');
             throw err;
         }
     };
@@ -176,9 +183,11 @@ export default function DashboardPage() {
 
             if (error) throw error;
 
+            showToast('Item deleted successfully', 'success');
             await fetchItems();
             setSelectedItem(null);
         } catch (err) {
+            showToast(err instanceof Error ? err.message : 'Failed to delete item', 'error');
             throw err;
         }
     };
@@ -555,7 +564,14 @@ export default function DashboardPage() {
                                 Clear selection
                             </button>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-3">
+                            <button
+                                onClick={() => setShowAddToCollectionModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition-colors shadow-md"
+                            >
+                                <FolderPlusIcon className="w-4 h-4" />
+                                Add to Collection
+                            </button>
                             <button
                                 onClick={() => setBulkMode('download')}
                                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors shadow-md"
@@ -856,6 +872,19 @@ export default function DashboardPage() {
                     }}
                 />
             )}
+
+            {/* Add to Collection Modal */}
+            {showAddToCollectionModal && (
+                <AddToCollectionModal
+                    isOpen={showAddToCollectionModal}
+                    onClose={() => setShowAddToCollectionModal(false)}
+                    selectedItemIds={Array.from(selectedItems)}
+                    onSuccess={() => {
+                        setSelectedItems(new Set());
+                        setShowAddToCollectionModal(false);
+                    }}
+                />
+            )}
         </div>
     );
 }
@@ -907,6 +936,14 @@ function PlusIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+    );
+}
+
+function FolderPlusIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
         </svg>
     );
 }

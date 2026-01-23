@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { ToastProvider } from "@/components/ToastProvider";
 import { NavBar } from "@/components/NavBar";
 
 const geistSans = Geist({
@@ -36,11 +37,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}
       >
         <ThemeProvider>
-          <div className="flex flex-col min-h-screen">
-            <NavBar />
-            <main className="flex-1">
-              {children}
-            </main>
+          <ToastProvider>
+            <div className="flex flex-col min-h-screen">
+              <NavBar />
+              <main className="flex-1">
+                {children}
+              </main>
             <footer className="py-4 text-center text-sm text-muted border-border no-print">
               <div className="container mx-auto">
                 <footer className="py-6 px-4 text-center border-t border-border">
@@ -64,6 +66,7 @@ export default function RootLayout({
               </div>
             </footer>
           </div>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

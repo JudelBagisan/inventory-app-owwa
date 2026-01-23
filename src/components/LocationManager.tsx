@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Location } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
+import { ConfirmModal } from './ConfirmModal';
+import { useToast } from './ToastProvider';
 
 interface LocationManagerProps {
     onClose: () => void;
@@ -13,8 +15,9 @@ export function LocationManager({ onClose }: LocationManagerProps) {
     const [newLocationName, setNewLocationName] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [locationToDelete, setLocationToDelete] = useState<string | null>(null);
     const supabase = createClient();
+    const { showToast } = useToast();
 
     useEffect(() => {
         fetchLocations();
@@ -49,7 +52,6 @@ export function LocationManager({ onClose }: LocationManagerProps) {
 
         try {
             setError(null);
-            setSuccessMessage(null);
 
             const { error } = await supabase
                 .from('locations')
@@ -57,22 +59,18 @@ export function LocationManager({ onClose }: LocationManagerProps) {
 
             if (error) throw error;
 
-            setSuccessMessage('Location added successfully');
+            showToast('Location added successfully', 'success');
             setNewLocationName('');
             await fetchLocations();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to add location');
+            showToast(err instanceof Error ? err.message : 'Failed to add location', 'error');
         }
     };
 
     const handleSoftDeleteLocation = async (locationId: string) => {
-        if (!confirm('Are you sure you want to delete this location? It will still remain in the system but marked as deleted.')) {
-            return;
-        }
-
         try {
             setError(null);
-            setSuccessMessage(null);
 
             const { error } = await supabase
                 .from('locations')
@@ -81,17 +79,18 @@ export function LocationManager({ onClose }: LocationManagerProps) {
 
             if (error) throw error;
 
-            setSuccessMessage('Location deleted successfully');
+            showToast('Location deleted successfully', 'success');
             await fetchLocations();
+            setLocationToDelete(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to delete location');
+            showToast(err instanceof Error ? err.message : 'Failed to delete location', 'error');
         }
     };
 
     const handleRestoreLocation = async (locationId: string) => {
         try {
             setError(null);
-            setSuccessMessage(null);
 
             const { error } = await supabase
                 .from('locations')
@@ -100,10 +99,11 @@ export function LocationManager({ onClose }: LocationManagerProps) {
 
             if (error) throw error;
 
-            setSuccessMessage('Location restored successfully');
+            showToast('Location restored successfully', 'success');
             await fetchLocations();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to restore location');
+            showToast(err instanceof Error ? err.message : 'Failed to restore location', 'error');
         }
     };
 
@@ -131,11 +131,6 @@ export function LocationManager({ onClose }: LocationManagerProps) {
                 {error && (
                     <div className="mx-6 mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600">
                         {error}
-                    </div>
-                )}
-                {successMessage && (
-                    <div className="mx-6 mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-600">
-                        {successMessage}
                     </div>
                 )}
 
@@ -182,7 +177,7 @@ export function LocationManager({ onClose }: LocationManagerProps) {
                                             >
                                                 <span className="text-foreground font-medium">{location.name}</span>
                                                 <button
-                                                    onClick={() => handleSoftDeleteLocation(location.id)}
+                                                    onClick={() => setLocationToDelete(location.id)}
                                                     className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 text-sm font-medium hover:bg-red-500 hover:text-white transition-all"
                                                 >
                                                     Delete
@@ -236,6 +231,19 @@ export function LocationManager({ onClose }: LocationManagerProps) {
                     </button>
                 </div>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {locationToDelete && (
+                <ConfirmModal
+                    isOpen={true}
+                    title="Delete Location"
+                    message="Are you sure you want to delete this location? It will still remain in the system but marked as deleted."
+                    confirmText="Delete"
+                    variant="danger"
+                    onConfirm={() => handleSoftDeleteLocation(locationToDelete)}
+                    onCancel={() => setLocationToDelete(null)}
+                />
+            )}
         </div>
     );
 }

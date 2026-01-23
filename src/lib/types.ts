@@ -100,6 +100,29 @@ export interface User {
     role?: 'admin' | 'user';
 }
 
+// Print Collections types
+export interface PrintCollection {
+    id: string;
+    name: string;
+    created_by: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CollectionItem {
+    collection_id: string;
+    item_id: string;
+    added_at: string;
+}
+
+export interface CollectionSummary extends PrintCollection {
+    item_count: number;
+}
+
+export interface CollectionWithItems extends PrintCollection {
+    items: Item[];
+}
+
 // Form data types
 export interface ItemFormData {
     name: string;
@@ -139,6 +162,16 @@ export interface Database {
                 Row: Unit;
                 Insert: Omit<Unit, 'id' | 'created_at'>;
                 Update: Partial<Omit<Unit, 'id' | 'created_at'>>;
+            };
+            print_collections: {
+                Row: PrintCollection;
+                Insert: Omit<PrintCollection, 'id' | 'created_at' | 'updated_at'>;
+                Update: Partial<Omit<PrintCollection, 'id' | 'created_at' | 'updated_at' | 'created_by'>>;
+            };
+            collection_items: {
+                Row: CollectionItem;
+                Insert: Omit<CollectionItem, 'added_at'>;
+                Update: never;
             };
         };
         Enums: {
