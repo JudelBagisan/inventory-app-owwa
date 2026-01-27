@@ -56,6 +56,7 @@ export function InventoryItemForm({
     const [stream, setStream] = useState<MediaStream | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     const supabase = createClient();
 
@@ -63,6 +64,22 @@ export function InventoryItemForm({
         fetchUnits();
         fetchLocations();
     }, []);
+
+    // Warning for unsaved changes on page refresh/leave
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasUnsavedChanges && isEditable) {
+                e.preventDefault();
+                e.returnValue = ''; // Modern browsers require this
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [hasUnsavedChanges, isEditable]);
 
     const fetchUnits = async () => {
         try {
@@ -101,6 +118,7 @@ export function InventoryItemForm({
             setIsSaving(true);
             setError(null);
             await onSave(formData);
+            setHasUnsavedChanges(false); // Reset unsaved changes flag after successful save
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save item');
         } finally {
@@ -125,6 +143,9 @@ export function InventoryItemForm({
 
     const handleChange = (field: keyof ItemFormData, value: string | number | null) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+        if (isEditable) {
+            setHasUnsavedChanges(true);
+        }
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
