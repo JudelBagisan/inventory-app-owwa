@@ -22,9 +22,12 @@ export default function ArchivedItemsPage() {
     const [archivedItems, setArchivedItems] = useState<ArchivedItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [selectedItem, setSelectedItem] = useState<ArchivedItem | null>(null);
     const [showRestoreModal, setShowRestoreModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showBulkRestoreModal, setShowBulkRestoreModal] = useState(false);
+    const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
     useEffect(() => {
         checkAuth();
@@ -102,6 +105,67 @@ export default function ArchivedItemsPage() {
         return Math.max(0, diffDays);
     };
 
+    const toggleSelectAll = () => {
+        if (selectedItems.size === filteredItems.length) {
+            setSelectedItems(new Set());
+        } else {
+            setSelectedItems(new Set(filteredItems.map(item => item.id)));
+        }
+    };
+
+    const toggleItemSelection = (itemId: string) => {
+        const newSelection = new Set(selectedItems);
+        if (newSelection.has(itemId)) {
+            newSelection.delete(itemId);
+        } else {
+            newSelection.add(itemId);
+        }
+        setSelectedItems(newSelection);
+    };
+
+    const handleBulkRestore = async () => {
+        try {
+            const itemsToRestore = Array.from(selectedItems);
+            
+            for (const itemId of itemsToRestore) {
+                const { error } = await supabase.rpc('restore_archived_item', {
+                    item_id: itemId
+                });
+                
+                if (error) {
+                    console.error('Error restoring item:', itemId, error);
+                }
+            }
+
+            showToast(`Successfully restored ${itemsToRestore.length} item(s)`, 'success');
+            await fetchArchivedItems();
+            setSelectedItems(new Set());
+            setShowBulkRestoreModal(false);
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : 'Failed to restore items', 'error');
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        try {
+            const itemsToDelete = Array.from(selectedItems);
+            
+            const { error } = await supabase
+                .from('archived_items')
+                .delete()
+                .in('id', itemsToDelete);
+
+            if (error) throw error;
+
+            showToast(`Successfully deleted ${itemsToDelete.length} item(s) permanently`, 'success');
+            await fetchArchivedItems();
+            setSelectedItems(new Set());
+            setShowBulkDeleteModal(false);
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : 'Failed to delete items', 'error');
+        }
+    };
+
     const filteredItems = archivedItems.filter(item =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.unique_id.toLowerCase().includes(searchQuery.toLowerCase())
@@ -174,12 +238,48 @@ export default function ArchivedItemsPage() {
                             </p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-border">
+                        <>
+                            {/* Bulk Actions Bar */}
+                            {filteredItems.length > 0 && (
+                                <div className="px-6 py-4 bg-surface-hover border-b border-border flex flex-wrap items-center gap-3">
+                                    <button
+                                        onClick={toggleSelectAll}
+                                        className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-surface transition-colors text-sm"
+                                    >
+                                        {selectedItems.size === filteredItems.length ? 'Deselect All' : 'Select All'}
+                                    </button>
+                                    {selectedItems.size > 0 && (
+                                        <>
+                                            <button
+                                                onClick={() => setShowBulkRestoreModal(true)}
+                                                className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors text-sm flex items-center gap-2"
+                                            >
+                                                <RestoreIcon className="w-4 h-4" />
+                                                Restore Selected ({selectedItems.size})
+                                            </button>
+                                            <button
+                                                onClick={() => setShowBulkDeleteModal(true)}
+                                                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors text-sm flex items-center gap-2"
+                                            >
+                                                <TrashIcon className="w-4 h-4" />
+                                                Delete Selected ({selectedItems.size})
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                            <div className="divide-y divide-border">
                             {filteredItems.map((item) => {
                                 const daysLeft = getDaysUntilDeletion(item.auto_delete_at);
                                 return (
                                     <div key={item.id} className="p-4 hover:bg-surface-hover transition-colors">
                                         <div className="flex items-start gap-4">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedItems.has(item.id)}
+                                                onChange={() => toggleItemSelection(item.id)}
+                                                className="w-5 h-5 rounded border-border text-primary focus:ring-primary mt-1"
+                                            />
                                             {item.image_url ? (
                                                 <img
                                                     src={item.image_url}
@@ -248,7 +348,8 @@ export default function ArchivedItemsPage() {
                                     </div>
                                 );
                             })}
-                        </div>
+                            </div>
+                        </>
                     )}
                 </div>
             </div>
@@ -279,6 +380,28 @@ export default function ArchivedItemsPage() {
                     setShowDeleteModal(false);
                     setSelectedItem(null);
                 }}
+            />
+
+            {/* Bulk Restore Confirmation Modal */}
+            <ConfirmModal
+                isOpen={showBulkRestoreModal}
+                title="Restore Multiple Items"
+                message={`Are you sure you want to restore ${selectedItems.size} selected item(s)? They will be moved back to your active inventory.`}
+                confirmText="Restore All"
+                variant="info"
+                onConfirm={handleBulkRestore}
+                onCancel={() => setShowBulkRestoreModal(false)}
+            />
+
+            {/* Bulk Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={showBulkDeleteModal}
+                title="Permanently Delete Multiple Items"
+                message={`Are you sure you want to permanently delete ${selectedItems.size} selected item(s)? This action cannot be undone.`}
+                confirmText="Delete All Permanently"
+                variant="danger"
+                onConfirm={handleBulkDelete}
+                onCancel={() => setShowBulkDeleteModal(false)}
             />
         </div>
     );

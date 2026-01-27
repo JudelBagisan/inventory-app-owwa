@@ -216,13 +216,15 @@ CREATE TRIGGER collection_items_change
 -- ----------------------------------------------------------------------------
 -- View for active (non-deleted) locations only
 -- ----------------------------------------------------------------------------
-CREATE OR REPLACE VIEW active_locations AS
+CREATE OR REPLACE VIEW active_locations
+WITH (security_invoker=true) AS
 SELECT * FROM locations WHERE deleted_at IS NULL;
 
 -- ----------------------------------------------------------------------------
 -- View for collection summary with item counts
 -- ----------------------------------------------------------------------------
-CREATE OR REPLACE VIEW collection_summary AS
+CREATE OR REPLACE VIEW collection_summary
+WITH (security_invoker=true) AS
 SELECT 
     pc.id,
     pc.name,

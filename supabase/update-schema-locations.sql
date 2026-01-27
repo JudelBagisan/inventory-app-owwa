@@ -13,5 +13,6 @@ CREATE POLICY "Locations can be updated by authenticated users"
   WITH CHECK (true);
 
 -- Add a view for active locations only (not deleted)
-CREATE OR REPLACE VIEW active_locations AS
+CREATE OR REPLACE VIEW active_locations
+WITH (security_invoker=true) AS
 SELECT * FROM locations WHERE deleted_at IS NULL;
