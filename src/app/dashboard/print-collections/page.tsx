@@ -26,6 +26,7 @@ export default function PrintCollectionsPage() {
     const [showInputModal, setShowInputModal] = useState<'create' | 'rename' | null>(null);
     const [collectionName, setCollectionName] = useState('');
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+    const [itemCopies, setItemCopies] = useState<Map<string, number>>(new Map());
     const [bulkMode, setBulkMode] = useState<'download' | 'print' | null>(null);
     const [viewItem, setViewItem] = useState<Item | null>(null);
 
@@ -178,7 +179,34 @@ export default function PrintCollectionsPage() {
     };
 
     const getSelectedItems = (): Item[] => {
-        return collectionItems.filter(item => selectedItems.has(item.id));
+        const items: Item[] = [];
+        collectionItems.forEach(item => {
+            if (selectedItems.has(item.id)) {
+                const copies = itemCopies.get(item.id) || 1;
+                for (let i = 0; i < copies; i++) {
+                    items.push(item);
+                }
+            }
+        });
+        return items;
+    };
+
+    const updateItemCopies = (itemId: string, copies: number) => {
+        const newCopies = new Map(itemCopies);
+        if (copies <= 0) {
+            newCopies.delete(itemId);
+        } else {
+            newCopies.set(itemId, Math.min(copies, 99)); // Max 99 copies
+        }
+        setItemCopies(newCopies);
+    };
+
+    const getTotalCopies = (): number => {
+        let total = 0;
+        selectedItems.forEach(itemId => {
+            total += itemCopies.get(itemId) || 1;
+        });
+        return total;
     };
 
     const handleSaveItem = async (data: ItemFormData) => {
@@ -205,19 +233,23 @@ export default function PrintCollectionsPage() {
         if (!viewItem) return;
         
         try {
-            const { error } = await supabase
-                .from('items')
-                .delete()
-                .eq('id', viewItem.id);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Not authenticated');
+
+            // Call the archive_item function
+            const { error } = await supabase.rpc('archive_item', {
+                item_id: viewItem.id,
+                user_id: user.id
+            });
             
             if (error) throw error;
             
-            showToast('Item deleted successfully', 'success');
+            showToast('Item archived successfully', 'success');
             await loadCollectionItems(selectedCollection!.id);
             await loadCollections();
             setViewItem(null);
         } catch (err) {
-            showToast(err instanceof Error ? err.message : 'Failed to delete item', 'error');
+            showToast(err instanceof Error ? err.message : 'Failed to archive item', 'error');
             throw err;
         }
     };
@@ -402,14 +434,14 @@ export default function PrintCollectionsPage() {
                                                     className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors text-sm flex items-center gap-2"
                                                 >
                                                     <DownloadIcon className="w-4 h-4" />
-                                                    Download Stickers ({selectedItems.size})
+                                                    Download Stickers ({getTotalCopies()!==selectedItems.size ?`${selectedItems.size}`:''})
                                                 </button>
                                                 <button
                                                     onClick={printAllLabels}
                                                     className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors text-sm flex items-center gap-2"
                                                 >
                                                     <PrintIcon className="w-4 h-4" />
-                                                    Print Stickers ({selectedItems.size})
+                                                    Print Stickers ({getTotalCopies()} {getTotalCopies() !== selectedItems.size ? `from ${selectedItems.size}` : ''})
                                                 </button>
                                             </>
                                         )}
@@ -435,12 +467,28 @@ export default function PrintCollectionsPage() {
                                                     key={item.id}
                                                     className="flex items-center gap-4 p-4 rounded-lg border border-border hover:bg-surface-hover transition-colors"
                                                 >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedItems.has(item.id)}
-                                                        onChange={() => toggleItemSelection(item.id)}
-                                                        className="w-5 h-5 rounded border-border text-primary focus:ring-primary"
-                                                    />
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedItems.has(item.id)}
+                                                            onChange={() => toggleItemSelection(item.id)}
+                                                            className="w-5 h-5 rounded border-border text-primary focus:ring-primary"
+                                                        />
+                                                        {selectedItems.has(item.id) && (
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <label className="text-xs text-muted whitespace-nowrap">Copies</label>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    max="99"
+                                                                    value={itemCopies.get(item.id) || 1}
+                                                                    onChange={(e) => updateItemCopies(item.id, parseInt(e.target.value) || 1)}
+                                                                    className="w-16 px-2 py-1 text-center rounded border border-border bg-background text-foreground text-sm"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     {item.image_url ? (
                                                         <img
                                                             src={item.image_url}

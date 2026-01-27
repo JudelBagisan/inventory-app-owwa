@@ -180,18 +180,22 @@ export default function DashboardPage() {
         if (!selectedItem) return;
 
         try {
-            const { error } = await supabase
-                .from('items')
-                .delete()
-                .eq('id', selectedItem.id);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Not authenticated');
+
+            // Call the archive_item function
+            const { error } = await supabase.rpc('archive_item', {
+                item_id: selectedItem.id,
+                user_id: user.id
+            });
 
             if (error) throw error;
 
-            showToast('Item deleted successfully', 'success');
+            showToast('Item archived successfully', 'success');
             await fetchItems();
             setSelectedItem(null);
         } catch (err) {
-            showToast(err instanceof Error ? err.message : 'Failed to delete item', 'error');
+            showToast(err instanceof Error ? err.message : 'Failed to archive item', 'error');
             throw err;
         }
     };
@@ -220,21 +224,30 @@ export default function DashboardPage() {
                 return;
             }
 
-            // Password is correct, proceed with deletion
-            const itemsToDelete = Array.from(selectedItems);
-            const { error } = await supabase
-                .from('items')
-                .delete()
-                .in('id', itemsToDelete);
+            // Password is correct, proceed with archiving
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Not authenticated');
 
-            if (error) throw error;
+            const itemsToArchive = Array.from(selectedItems);
+            
+            // Archive each item
+            for (const itemId of itemsToArchive) {
+                const { error } = await supabase.rpc('archive_item', {
+                    item_id: itemId,
+                    user_id: user.id
+                });
+                
+                if (error) {
+                    console.error('Error archiving item:', itemId, error);
+                }
+            }
 
-            showToast(`Successfully deleted ${itemsToDelete.length} item(s)`, 'success');
+            showToast(`Successfully archived ${itemsToArchive.length} item(s)`, 'success');
             await fetchItems();
             setSelectedItems(new Set());
             setShowBulkDeletePassword(false);
         } catch (err) {
-            showToast(err instanceof Error ? err.message : 'Failed to delete items', 'error');
+            showToast(err instanceof Error ? err.message : 'Failed to archive items', 'error');
             setShowBulkDeletePassword(false);
         }
     };
@@ -543,6 +556,15 @@ export default function DashboardPage() {
                         >
                             <ExportIcon className="w-5 h-5" />
                             Export to Excel
+                        </button>
+
+                        {/* Archived Items Button */}
+                        <button
+                            onClick={() => window.location.href = '/dashboard/archived'}
+                            className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                        >
+                            <ArchiveIcon className="w-5 h-5" />
+                            Archived Items
                         </button>
                     </div>
                 </div>
@@ -1086,6 +1108,14 @@ function PrintIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+    );
+}
+
+function ArchiveIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
         </svg>
     );
 }

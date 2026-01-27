@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import QRCode from 'qrcode';
 import { Item } from '@/lib/types';
 
@@ -21,6 +21,7 @@ export function BulkStickerGenerator({ items, onClose, mode }: BulkStickerGenera
     const [isProcessing, setIsProcessing] = useState(false);
     const [progress, setProgress] = useState(0);
     const [downloadIndex, setDownloadIndex] = useState(0);
+    const isCancelledRef = useRef(false);
 
     useEffect(() => {
         generateAllQRCodes();
@@ -348,6 +349,7 @@ export function BulkStickerGenerator({ items, onClose, mode }: BulkStickerGenera
     const handleBulkDownload = async () => {
         setIsProcessing(true);
         setProgress(0);
+        isCancelledRef.current = false;
 
         try {
             // Dynamic import of JSZip to avoid SSR issues
@@ -357,6 +359,13 @@ export function BulkStickerGenerator({ items, onClose, mode }: BulkStickerGenera
             const zip = new JSZip();
 
             for (let i = 0; i < stickersData.length; i++) {
+                // Check if cancelled
+                if (isCancelledRef.current) {
+                    console.log('Download cancelled by user');
+                    setIsProcessing(false);
+                    return;
+                }
+
                 const { item, qrDataUrl } = stickersData[i];
                 setDownloadIndex(i + 1);
 
@@ -538,6 +547,16 @@ export function BulkStickerGenerator({ items, onClose, mode }: BulkStickerGenera
                                 style={{ width: `${progress}%` }}
                             />
                         </div>
+                        <button
+                            onClick={() => {
+                                isCancelledRef.current = true;
+                                setIsProcessing(false);
+                                onClose();
+                            }}
+                            className="mt-6 px-6 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors font-medium"
+                        >
+                            Cancel Download
+                        </button>
                     </div>
                 ) : (
                     <div className="flex gap-3">
