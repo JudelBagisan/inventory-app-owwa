@@ -978,7 +978,7 @@ export default function DashboardPage() {
             <PasswordConfirmModal
                 isOpen={showBulkDeletePassword}
                 title="Enter Password to Delete"
-                message={`You are about to permanently delete ${selectedItems.size} item(s). This action cannot be undone.`}
+                message={`You are about to delete ${selectedItems.size} item(s). These items will be saved in archived items.`}
                 confirmText="Delete Items"
                 cancelText="Cancel"
                 onConfirm={handleBulkDeleteWithPassword}

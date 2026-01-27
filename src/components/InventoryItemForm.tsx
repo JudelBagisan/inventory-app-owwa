@@ -760,7 +760,7 @@ export function InventoryItemForm({
             <ConfirmModal
                 isOpen={showDeleteModal}
                 title="Delete Item"
-                message="Are you sure you want to delete this item? This action cannot be undone."
+                message="Are you sure you want to delete this item? This item will be stored in archived items."
                 confirmText="Delete"
                 cancelText="Cancel"
                 variant="danger"

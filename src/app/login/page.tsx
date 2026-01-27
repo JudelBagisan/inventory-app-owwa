@@ -10,6 +10,7 @@ function LoginForm() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +31,13 @@ function LoginForm() {
             });
 
             if (error) throw error;
+
+            // Store remember me preference
+            if (rememberMe) {
+                localStorage.setItem('rememberMe', 'true');
+            } else {
+                localStorage.removeItem('rememberMe');
+            }
 
             router.push(redirect);
             router.refresh();
@@ -130,6 +138,20 @@ function LoginForm() {
                         </div>
                     </div>
 
+                    {/* Remember Me Checkbox */}
+                    <div className="flex items-center">
+                        <input
+                            id="remember-me"
+                            type="checkbox"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/20 bg-background cursor-pointer"
+                        />
+                        <label htmlFor="remember-me" className="ml-2 text-sm text-muted cursor-pointer select-none">
+                            Remember me
+                        </label>
+                    </div>
+
                     {/* Submit Button */}
                     <button
                         type="submit"
@@ -186,15 +208,7 @@ function LoginFormFallback() {
 export default function LoginPage() {
     return (
         <div className="min-h-screen flex flex-col bg-background">
-            {/* Theme Toggle */}
-            <div className="flex justify-end p-4">
-                <button
-                    className="w-10 h-10 rounded-full bg-surface-hover flex items-center justify-center text-foreground hover:bg-surface transition-colors"
-                    aria-label="Toggle Theme"
-                >
-                    <MoonIcon className="w-5 h-5" />
-                </button>
-            </div>
+            
 
             {/* Main Content */}
             <main className="flex-1 flex items-center justify-center px-4 pb-8">
