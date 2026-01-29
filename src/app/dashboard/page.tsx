@@ -36,6 +36,7 @@ export default function DashboardPage() {
     const [showAddToCollectionModal, setShowAddToCollectionModal] = useState(false);
     const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
     const [showBulkDeletePassword, setShowBulkDeletePassword] = useState(false);
+    const [showRecentlyAdded, setShowRecentlyAdded] = useState(false);
 
     const supabase = createClient();
 
@@ -405,6 +406,34 @@ export default function DashboardPage() {
         });
     };
 
+    // Function to calculate time ago
+    const getTimeAgo = (dateStr: string) => {
+        const now = new Date();
+        const past = new Date(dateStr);
+        const diffInMs = now.getTime() - past.getTime();
+        const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+        const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+        const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+        const diffInWeeks = Math.floor(diffInDays / 7);
+        const diffInMonths = Math.floor(diffInDays / 30);
+        const diffInYears = Math.floor(diffInDays / 365);
+
+        if (diffInMinutes < 1) return 'Just now';
+        if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+        if (diffInHours < 24) return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+        if (diffInDays < 7) return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
+        if (diffInWeeks < 4) return `${diffInWeeks} week${diffInWeeks !== 1 ? 's' : ''} ago`;
+        if (diffInMonths < 12) return `${diffInMonths} month${diffInMonths !== 1 ? 's' : ''} ago`;
+        return `${diffInYears} year${diffInYears !== 1 ? 's' : ''} ago`;
+    };
+
+    // Get recently added items (last 5)
+    const recentlyAddedItems = useMemo(() => {
+        return [...items]
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 5);
+    }, [items]);
+
     return (
         <div className="container mx-auto py-6 px-4">
             {/* Header */}
@@ -491,6 +520,60 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Recently Added Items Section */}
+            {recentlyAddedItems.length > 0 && (
+                <div className="bg-surface rounded-xl border border-border mb-6 overflow-hidden">
+                    <button
+                        onClick={() => setShowRecentlyAdded(!showRecentlyAdded)}
+                        className="w-full flex items-center justify-between p-5 hover:bg-surface-hover transition-all"
+                    >
+                        <div className="flex items-center gap-3">
+                            <ClockIcon className="w-6 h-6 text-primary" />
+                            <div className="text-left">
+                                <h2 className="text-lg font-semibold text-foreground">Recently Added Items</h2>
+                                <p className="text-sm text-muted mt-1">Latest additions to your inventory</p>
+                            </div>
+                        </div>
+                        <ChevronRightIcon className={`w-5 h-5 text-muted transition-transform ${showRecentlyAdded ? 'rotate-90' : ''}`} />
+                    </button>
+                    {showRecentlyAdded && (
+                        <div className="px-5 pb-5 space-y-3 border-t border-border pt-4">
+                            {recentlyAddedItems.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className="flex items-center gap-4 p-3 rounded-lg bg-background hover:bg-background/80 border border-border transition-all cursor-pointer"
+                                    onClick={() => setSelectedItem(item)}
+                                >
+                                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                        <CategoryIcon category={item.category} className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-medium text-foreground truncate">{item.name}</h3>
+                                            <StatusBadge status={item.status} size="sm" />
+                                        </div>
+                                        <div className="flex items-center gap-3 mt-1">
+                                            <p className="text-sm text-muted truncate">{item.unique_id}</p>
+                                            {item.location && (
+                                                <span className="text-xs text-muted flex items-center gap-1">
+                                                    <LocationIcon className="w-3 h-3" />
+                                                    {item.location}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex-shrink-0 text-right">
+                                        <span className="text-sm font-medium text-primary">
+                                            {getTimeAgo(item.created_at)}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Toolbar: Filters, Sort, Export */}
             <div className="bg-surface rounded-xl border border-border p-4 mb-6">
@@ -720,7 +803,7 @@ export default function DashboardPage() {
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Image</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Item Name</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Category</th>
-                                    <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Serial No.</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Property No.</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Location</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">End User</th>
                                     <th className="px-3 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Status</th>
@@ -761,7 +844,7 @@ export default function DashboardPage() {
                                             <CategoryBadge category={item.category} />
                                         </td>
                                         <td className="px-3 py-3">
-                                            <span className="text-sm font-mono text-foreground">{item.serial_number || '-'}</span>
+                                            <span className="text-sm font-mono text-foreground">{item.property_number || '-'}</span>
                                         </td>
                                         <td className="px-3 py-3">
                                             <span className="text-sm text-foreground">{item.location || '-'}</span>
@@ -1124,6 +1207,14 @@ function TrashIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+    );
+}
+
+function ClockIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
     );
 }
