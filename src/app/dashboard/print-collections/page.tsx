@@ -434,7 +434,7 @@ export default function PrintCollectionsPage() {
                                                     className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors text-sm flex items-center gap-2"
                                                 >
                                                     <DownloadIcon className="w-4 h-4" />
-                                                    Download Stickers ({getTotalCopies()!==selectedItems.size ?`${selectedItems.size}`:''})
+                                                    Download Stickers
                                                 </button>
                                                 <button
                                                     onClick={printAllLabels}
