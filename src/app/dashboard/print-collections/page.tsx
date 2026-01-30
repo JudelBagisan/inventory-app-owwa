@@ -284,7 +284,9 @@ export default function PrintCollectionsPage() {
 
     const filteredItems = collectionItems.filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.unique_id.toLowerCase().includes(searchQuery.toLowerCase());
+            item.unique_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.end_user?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.property_number?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = categoryFilter === 'All' || item.category === categoryFilter;
         return matchesSearch && matchesCategory;
     });
@@ -425,20 +427,21 @@ export default function PrintCollectionsPage() {
                                             <>
                                                 <button
                                                     onClick={removeSelectedItems}
-                                                    className="px-4 py-2 rounded-lg bg-danger text-white hover:bg-danger-hover transition-colors text-sm"
+                                                    className="px-4 py-2 rounded-lg bg-danger text-white hover:bg-danger-hover transition-colors text-sm flex items-center gap-2 w-full md:w-max text-left"
                                                 >
+                                                    <TrashIcon className="w-4 h-4" />
                                                     Remove Selected ({selectedItems.size})
                                                 </button>
                                                 <button
                                                     onClick={downloadAllStickers}
-                                                    className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors text-sm flex items-center gap-2"
+                                                    className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors text-sm flex items-center gap-2 w-full md:w-max"
                                                 >
                                                     <DownloadIcon className="w-4 h-4" />
                                                     Download Stickers
                                                 </button>
                                                 <button
                                                     onClick={printAllLabels}
-                                                    className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors text-sm flex items-center gap-2"
+                                                    className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors text-sm flex items-center gap-2 w-full md:w-max"
                                                 >
                                                     <PrintIcon className="w-4 h-4" />
                                                     Print Stickers ({getTotalCopies()} {getTotalCopies() !== selectedItems.size ? `from ${selectedItems.size}` : ''})
@@ -502,7 +505,7 @@ export default function PrintCollectionsPage() {
                                                     )}
                                                     <div className="flex-1">
                                                         <h3 className="font-medium text-foreground">{item.name}</h3>
-                                                        <p className="text-sm text-muted">ID: {item.unique_id}</p>
+                                                        <p className="text-sm text-muted">Property No: {item.property_number}</p>
                                                         <div className="flex items-center gap-2 mt-1">
                                                             <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
                                                                 {item.category === 'Furniture and Fixtures' ? 'Furniture' :
@@ -648,6 +651,14 @@ function PrintIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+    );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
         </svg>
     );
 }

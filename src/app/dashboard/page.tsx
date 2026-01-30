@@ -687,7 +687,7 @@ export default function DashboardPage() {
                                 setStatusFilter('All');
                                 setSearchQuery('');
                             }}
-                            className="text-sm text-muted hover:text-foreground underline"
+                            className="text-sm text-muted hover:underline cursor-pointer hover:text-danger"
                         >
                             Clear all
                         </button>
@@ -705,13 +705,13 @@ export default function DashboardPage() {
                             </span>
                             <button
                                 onClick={handleSelectAllFiltered}
-                                className="text-sm text-primary hover:underline"
+                                className="text-sm text-primary hover:underline cursor-pointer"
                             >
                                 Select all {filteredItems.length}
                             </button>
                             <button
                                 onClick={handleClearSelection}
-                                className="text-sm text-muted hover:text-foreground"
+                                className="text-sm text-muted hover:text-danger cursor-pointer hover:underline"
                             >
                                 Clear selection
                             </button>
@@ -719,28 +719,28 @@ export default function DashboardPage() {
                         <div className="flex flex-wrap gap-3">
                             <button
                                 onClick={() => setShowAddToCollectionModal(true)}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition-colors shadow-md"
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg w-full md:w-max bg-purple-600 text-white font-medium hover:bg-purple-700 transition-colors shadow-md"
                             >
                                 <FolderPlusIcon className="w-4 h-4" />
                                 Add to Collection
                             </button>
                             <button
                                 onClick={() => setBulkMode('download')}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors shadow-md"
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 w-full md:w-max text-white font-medium hover:bg-emerald-700 transition-colors shadow-md"
                             >
                                 <DownloadIcon className="w-4 h-4" />
                                 Download Stickers
                             </button>
                             <button
                                 onClick={() => setBulkMode('print')}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover transition-colors shadow-md"
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary w-full md:w-max text-white font-medium hover:bg-primary-hover transition-colors shadow-md"
                             >
                                 <PrintIcon className="w-4 h-4" />
                                 Print Stickers
                             </button>
                             <button
                                 onClick={handleBulkDeleteClick}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-danger text-white font-medium hover:bg-danger/90 transition-colors shadow-md"
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-danger w-full md:w-max text-white font-medium hover:bg-danger/90 transition-colors shadow-md"
                             >
                                 <TrashIcon className="w-4 h-4" />
                                 Delete Selected
