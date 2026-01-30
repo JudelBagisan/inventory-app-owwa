@@ -669,9 +669,19 @@ export default function DashboardPage() {
                             </span>
                         )}
                         {statusFilter !== 'All' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-sm">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm ${
+                                statusFilter === 'Brand New' ? 'bg-emerald-500/10 text-emerald-600' :
+                                statusFilter === 'Good' ? 'bg-blue-500/10 text-blue-600' :
+                                statusFilter === 'Serviceable' ? 'bg-teal-500/10 text-teal-600' :
+                                statusFilter === 'Unserviceable' ? 'bg-red-500/10 text-red-600' :
+                                statusFilter === 'Repair Needed' ? 'bg-orange-500/10 text-orange-600' :
+                                statusFilter === 'Donated' ? 'bg-purple-500/10 text-purple-600' :
+                                statusFilter === 'For Disposal' ? 'bg-gray-500/10 text-gray-600' :
+                                statusFilter === 'Disposable' ? 'bg-slate-500/10 text-slate-600' :
+                                'bg-primary/10 text-primary'
+                            }`}>
                                 Status: {statusFilter}
-                                <button onClick={() => setStatusFilter('All')} className="hover:text-primary-hover">×</button>
+                                <button onClick={() => setStatusFilter('All')} className="hover:opacity-70">×</button>
                             </span>
                         )}
                         {searchQuery && (
