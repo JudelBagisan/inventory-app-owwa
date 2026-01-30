@@ -365,7 +365,7 @@ export default function PrintCollectionsPage() {
                     {/* Main Content - Collection Items */}
                     <div className="lg:col-span-3">
                         {selectedCollection ? (
-                            <div className="bg-surface rounded-xl border border-border">
+                            <div className="bg-surface rounded-xl border border-border mb-8">
                                 {/* Collection Header */}
                                 <div className="p-6 border-b border-border">
                                     <div className="flex items-center justify-between mb-4">

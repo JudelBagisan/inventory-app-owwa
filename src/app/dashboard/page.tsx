@@ -786,7 +786,7 @@ export default function DashboardPage() {
                     </p>
                 </div>
             ) : (
-                <div className="bg-surface rounded-xl border border-border overflow-hidden">
+                <div className="bg-surface rounded-xl border border-border overflow-hidden mb-8">
                     {/* Desktop Table */}
                     <div className="hidden lg:block overflow-x-auto">
                         <table className="w-full">
